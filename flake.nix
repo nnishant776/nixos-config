@@ -2,18 +2,18 @@
   description = "A very basic flake";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-25.11";
+    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-26.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs?ref=nixos-unstable";
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     hyprland = {
-      url = "github:hyprwm/Hyprland/v0.52.2?submodules=true";
+      url = "github:hyprwm/Hyprland/v0.55.4?submodules=true";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     hyprlock = {
-      url = "github:hyprwm/hyprlock/v0.9.2";
+      url = "github:hyprwm/hyprlock/v0.9.5";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     plasma-manager = {
