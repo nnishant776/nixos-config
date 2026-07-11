@@ -1,0 +1,17 @@
+{
+    "settings": {
+        "files.trimFinalNewlines": true,
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        "editor.insertSpaces": true,
+        "editor.autoIndent": "enabled",
+        "editor.quickSuggestions": {
+            "other": "on"
+        },
+        "editor.guides.indentation": true,
+        "window.filename": "rootrel",
+        "[nix]": {
+            "editor.tabSize": 2
+        }
+    }
+}
