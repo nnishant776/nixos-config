@@ -59,8 +59,22 @@
     };
 
     system.packages.development.editors = {
-      vscode = lib.mkEnableOption "Enable installation of VSCode";
-      neovim = lib.mkEnableOption "Enable installation of Neovim (No configuration)";
+      vscode = {
+        enable = lib.mkEnableOption "Enable installation of VSCode";
+      };
+      neovim = {
+        enable = lib.mkEnableOption "Enable installation of Neovim (No configuration)";
+        config = {
+          path = lib.mkOption {
+            type = lib.types.str;
+            default = "~/.dotfiles/config/nvim";
+          };
+          repo = lib.mkOption {
+            type = lib.types.str;
+            default = "https://github.com/janedoe/init.lua";
+          };
+        };
+      };
     };
   };
 

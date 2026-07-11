@@ -45,7 +45,9 @@
       };
       development = {
         editors = {
-          neovim = true;
+          neovim = {
+            enable = true;
+          };
         };
       };
     };
