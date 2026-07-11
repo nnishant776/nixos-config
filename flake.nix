@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-26.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    apple-fonts.url = "github:Lyndeno/apple-fonts.nix";
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -51,7 +52,7 @@
           name = host;
           value = lib.nixosSystem {
             modules = [
-              { system.stateVersion = "25.11"; }
+              { system.stateVersion = "26.05"; }
               (./hardware-configuration.nix)
               (./hosts + "/${host}")
               ./modules/system
