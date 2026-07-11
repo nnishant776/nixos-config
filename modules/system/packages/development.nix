@@ -5,8 +5,8 @@
         enable = lib.mkEnableOption "Enable installation of basic development packages";
         packages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
-          default = [
-            pkgs.gh
+          default = with pkgs; [
+            gh
           ];
         };
       };
@@ -14,9 +14,10 @@
         enable = lib.mkEnableOption  "Enable installation of C/C++ development packages";
         packages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
-          default = [
-            pkgs.clang
-            pkgs.clang-tools
+          default = with pkgs; [
+            clang
+            clang-tools
+            cmake
           ];
         };
       };
@@ -24,8 +25,8 @@
         enable = lib.mkEnableOption  "Enable installation of Go development packages";
         packages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
-          default = [
-            pkgs.go
+          default = with pkgs; [
+            go
           ];
         };
       };
@@ -33,8 +34,8 @@
         enable = lib.mkEnableOption  "Enable installation of Rust development packages";
         packages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
-          default = [
-            pkgs.rustup
+          default = with pkgs; [
+            rustup
           ];
         };
       };
@@ -42,8 +43,8 @@
         enable = lib.mkEnableOption  "Enable installation of Python development packages";
         packages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
-          default = [
-            pkgs.python3
+          default = with pkgs; [
+            python3
           ];
         };
       };
@@ -51,8 +52,17 @@
         enable = lib.mkEnableOption  "Enable installation of Java development packages";
         packages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
-          default = [
-            pkgs.zulu
+          default = with pkgs; [
+            zulu
+          ];
+        };
+      };
+      nix = {
+        enable = lib.mkEnableOption  "Enable installation of Nix development packages";
+        packages = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = with pkgs; [
+            nil
           ];
         };
       };
@@ -61,9 +71,19 @@
     system.packages.development.editors = {
       vscode = {
         enable = lib.mkEnableOption "Enable installation of VSCode";
+        packages = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = [ ];
+        };
       };
       neovim = {
-        enable = lib.mkEnableOption "Enable installation of Neovim (No configuration)";
+        enable = lib.mkEnableOption "Enable installation of Neovim";
+        packages = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = with pkgs; [
+            neovim
+          ];
+        };
         config = {
           path = lib.mkOption {
             type = lib.types.str;
@@ -75,22 +95,40 @@
           };
         };
       };
+      emacs = {
+        enable = lib.mkEnableOption "Enable installation of Emacs";
+        packages = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = with pkgs; [
+            emacs
+            libtool # For VTerm
+          ];
+        };
+        config = {
+          path = lib.mkOption {
+            type = lib.types.str;
+            default = "~/.dotfiles/config/emacs";
+          };
+          repo = lib.mkOption {
+            type = lib.types.str;
+            default = "https://github.com/janedoe/init.el";
+          };
+        };
+      };
     };
   };
 
   config = {
     environment.systemPackages = [ ]
       ++ lib.optionals (config.system.packages.development.sdk.base.enable) config.system.packages.development.sdk.base.packages
-      ++ lib.optionals (config.system.packages.development.sdk.cpp.enable) config.system.packages.development.sdk.cpp.packges
+      ++ lib.optionals (config.system.packages.development.sdk.cpp.enable) config.system.packages.development.sdk.cpp.packages
       ++ lib.optionals (config.system.packages.development.sdk.go.enable) config.system.packages.development.sdk.go.packges
-      ++ lib.optionals (config.system.packages.development.sdk.rust.enable) config.system.packages.development.sdk.rust.packges
-      ++ lib.optionals (config.system.packages.development.sdk.python.enable) config.system.packages.development.sdk.python.packges
-      ++ lib.optionals (config.system.packages.development.sdk.java.enable) config.system.packages.development.sdk.java.packges
-      ++ lib.optionals (config.system.packages.development.editors.vscode) [
-        pkgs.vscode
-      ] ++ lib.optionals (config.system.packages.development.editors.vscode) [
-        pkgs.neovim
-        # pkgs.lunarvim
-      ];
+      ++ lib.optionals (config.system.packages.development.sdk.rust.enable) config.system.packages.development.sdk.rust.packages
+      ++ lib.optionals (config.system.packages.development.sdk.python.enable) config.system.packages.development.sdk.python.packages
+      ++ lib.optionals (config.system.packages.development.sdk.nix.enable) config.system.packages.development.sdk.nix.packages
+      ++ lib.optionals (config.system.packages.development.sdk.java.enable) config.system.packages.development.sdk.java.packages
+      ++ lib.optionals (config.system.packages.development.editors.vscode.enable) config.system.packages.development.editors.vscode.packages
+      ++ lib.optionals (config.system.packages.development.editors.neovim.enable) config.system.packages.development.editors.neovim.packages
+      ++ lib.optionals (config.system.packages.development.editors.emacs.enable) config.system.packages.development.editors.emacs.packages;
   };
 }

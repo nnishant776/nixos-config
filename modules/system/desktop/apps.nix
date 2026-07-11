@@ -3,14 +3,14 @@
     system.desktop = {
       apps = lib.mkOption {
         type = lib.types.listOf lib.types.package;
-        default = [
-          pkgs.alacritty
-          pkgs.wl-clipboard
-          pkgs.brightnessctl
-          pkgs.playerctl
-          pkgs.pavucontrol
-          pkgs.chromium
-          pkgs.blueman
+        default = with pkgs; [
+          alacritty
+          wl-clipboard
+          brightnessctl
+          playerctl
+          pavucontrol
+          chromium
+          blueman
         ];
       };
     };

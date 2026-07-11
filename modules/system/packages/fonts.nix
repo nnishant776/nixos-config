@@ -1,4 +1,4 @@
-{ pkgs, lib, config, ... }: {
+{ inputs, pkgs, lib, config, ... }: {
   options = {
     system.packages.fonts = {
       enable = lib.mkOption {
@@ -8,18 +8,21 @@
       };
       base = lib.mkOption {
         type = lib.types.listOf lib.types.package;
-        default = [
-          pkgs.noto-fonts
-          pkgs.noto-fonts-cjk-sans
-          pkgs.noto-fonts-color-emoji
-          pkgs.liberation_ttf
-          pkgs.fira-code
-          pkgs.fira-mono
-          pkgs.fira-code-symbols
-          pkgs.nerd-fonts.liberation
-          pkgs.nerd-fonts.noto
-          pkgs.nerd-fonts.fira-mono
-          pkgs.nerd-fonts.fira-code
+        default = with pkgs; [
+          noto-fonts
+          noto-fonts-cjk-sans
+          noto-fonts-color-emoji
+          liberation_ttf
+          fira-code
+          fira-mono
+          fira-code-symbols
+          nerd-fonts.liberation
+          nerd-fonts.symbols-only
+          nerd-fonts.noto
+          nerd-fonts.fira-mono
+          nerd-fonts.fira-code
+          inputs.apple-fonts.packages.${pkgs.system}.sf-pro
+          inputs.apple-fonts.packages.${pkgs.system}.sf-mono
         ];
       };
     };
@@ -28,7 +31,7 @@
   config = lib.mkIf config.system.packages.fonts.enable {
     fonts = {
       enableDefaultPackages = true;
-      packages = with pkgs; [] ++ ( config.system.packages.fonts.base );
+      packages = ( config.system.packages.fonts.base );
     };
   };
 }
