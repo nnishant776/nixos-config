@@ -3,6 +3,7 @@
     fonts = {
       fontconfig = {
         enable = true;
+        antialias = true;
         defaultFonts = {
           serif = [ "Liberation Serif" ];
           sansSerif = [ "Liberation Sans Serif" ];
@@ -15,6 +16,7 @@
         includeUserConf = true;
         subpixel = {
           rgba = "rgb";
+          lcdfilter = "default";
         };
       };
     };
