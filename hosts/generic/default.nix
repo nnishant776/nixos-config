@@ -1,4 +1,10 @@
 { config, pkgs, lib, ...}: {
+  virtualisation = {
+    containers.enable = lib.mkForce false;
+    docker.enable = lib.mkForce false;
+    docker.rootless.enable = lib.mkForce false;
+    podman.enable = lib.mkForce false;
+  };
   system = {
     settings = {
       hardware.graphics = {
@@ -37,17 +43,27 @@
     };
     desktop = {
       enable = true;
-      shell = "all";
+      environment = "all";
+      environments.hyprland.shell = "caelestia";
     };
     packages = {
       fonts = {
         enable = true;
       };
       development = {
+        sdk = {
+          base.enable = true;
+          cpp.enable = true;
+          nix.enable = true;
+          lua.enable = true;
+        };
         editors = {
-          neovim = {
-            enable = true;
-          };
+          neovim.enable = true;
+          emacs.enable = true;
+        };
+        tools = {
+          agents.gemini.enable = true;
+          rtk.enable = true;
         };
       };
     };

@@ -7,7 +7,7 @@
   options = {
     system.desktop = {
       enable = lib.mkEnableOption "Enable GUI Desktop";
-      shell = lib.mkOption {
+      environment = lib.mkOption {
         type = lib.types.nullOr (lib.types.enum ["gnome" "hyprland" "sway" "all" ]);
         default = null;
       };
@@ -68,10 +68,10 @@
     system = {
       packages.multimedia.enable = true;
       desktop = {
-        shells = {
-          gnome.enable = config.system.desktop.shell == "gnome" || config.system.desktop.shell == "all";
-          hyprland.enable = config.system.desktop.shell == "hyprland" || config.system.desktop.shell == "all";
-          sway.enable = config.system.desktop.shell == "sway" || config.system.desktop.shell == "all";
+        environments = {
+          gnome.enable = config.system.desktop.environment == "gnome" || config.system.desktop.environment == "all";
+          hyprland.enable = config.system.desktop.environment == "hyprland" || config.system.desktop.environment == "all";
+          sway.enable = config.system.desktop.environment == "sway" || config.system.desktop.environment == "all";
         };
       };
     };

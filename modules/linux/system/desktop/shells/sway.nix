@@ -1,13 +1,13 @@
 { pkgs, lib, config, ... }: {
   options = {
-    system.desktop.shells = {
+    system.desktop.environments = {
       sway = {
         enable = lib.mkEnableOption "Enable SwayWM";
       };
     };
   };
 
-  config = lib.mkIf config.system.desktop.shells.sway.enable {
+  config = lib.mkIf config.system.desktop.environments.sway.enable {
     # Enable GDM login manager
     services.displayManager.gdm.enable = true;
 

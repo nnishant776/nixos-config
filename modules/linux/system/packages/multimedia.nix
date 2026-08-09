@@ -38,7 +38,13 @@
   };
 
   config = {
-    environment.systemPackages = lib.mkIf config.system.packages.multimedia.enable
-      config.system.packages.multimedia.basePackages;
+    environment.systemPackages = lib.mkIf config.system.packages.multimedia.enable config.system.packages.multimedia.basePackages;
+    # programs.nix-ld.libraries = lib.mkAfter (lib.optionals (config.system.packages.multimedia.enable) (with pkgs; [
+    #       glib
+    #       udev
+    #       systemd
+    #     ] ++ config.system.packages.multimedia.basePackages
+    #   )
+    # );
   };
 }

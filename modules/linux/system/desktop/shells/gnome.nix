@@ -1,13 +1,13 @@
 { pkgs, lib, config, ... }: {
   options = {
-    system.desktop.shells = {
+    system.desktop.environments = {
       gnome = {
         enable = lib.mkEnableOption "Enable GNOME shell";
       };
     };
   };
 
-  config = lib.mkIf config.system.desktop.shells.gnome.enable {
+  config = lib.mkIf config.system.desktop.environments.gnome.enable {
     # Enable GDM login manager
     services.displayManager.gdm.enable = true;
 

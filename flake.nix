@@ -5,6 +5,7 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-26.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs?ref=nixos-unstable";
     apple-fonts.url = "github:Lyndeno/apple-fonts.nix";
+    nix-ld.url = "github:Mic92/nix-ld";
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -13,17 +14,9 @@
       url = "github:hyprwm/Hyprland/v0.55.4?submodules=true";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    hyprlock = {
-      url = "github:hyprwm/hyprlock/v0.9.5";
+    caelestia-shell = {
+      url = "github:caelestia-dots/shell";
       inputs.nixpkgs.follows = "nixpkgs";
-    };
-    plasma-manager = {
-      url = "github:nix-community/plasma-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.home-manager.follows = "home-manager";
-    };
-    stylix = {
-      url = "github:nix-community/stylix";
     };
   };
 
@@ -43,10 +36,8 @@
           allowUnfreePredicate = (_: true);
         };
       };
-
-    in
-      {
-      # generate a nixos configuration for every host in ./hosts
+    in {
+      # Generate a nixos configuration for every host in ./hosts
       nixosConfigurations = builtins.listToAttrs (
         map (host: {
           name = host;
@@ -55,14 +46,11 @@
               { system.stateVersion = "26.05"; }
               (./hardware-configuration.nix)
               (./hosts + "/${host}")
-              ./modules/system
+              ./modules/linux
               (./override.nix)
               inputs.home-manager.nixosModules.home-manager
               {
-                home-manager.extraSpecialArgs = {
-                  inherit pkgs;
-                  inherit inputs;
-                };
+                home-manager.extraSpecialArgs = { inherit pkgs; inherit inputs; };
               }
             ];
             specialArgs = {
