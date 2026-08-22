@@ -1,13 +1,25 @@
 { pkgs, lib, config, ... }:
 let
   defaultDesktopPackages = with pkgs; [
+    # Terminal
     alacritty
+
+    # Clipboard
     wl-clipboard
+
+    # System Brightness
     brightnessctl
+
+    # Media Controls
     playerctl
-    pavucontrol
-    chromium
+
+    # Networking and Hardware
     blueman
+    pavucontrol
+
+    # Internet Browsers
+    chromium
+    widevine-cdm                # For Chromium
   ];
 in {
   config = lib.mkIf config.myconf.desktop.enable {
