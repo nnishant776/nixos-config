@@ -185,6 +185,14 @@ in {
 
     # ── System Services & Infrastructure ──
     systemServices = {
+      bootloader = {
+        program = lib.mkOption {
+          type = lib.types.nullOr (lib.types.enum ["systemd-boot" "grub" "uboot"]);
+          default = "systemd-boot";
+        };
+        allowEFIVariableEdit = lib.mkEnableOption "Allow bootloader to touch EFI variables";
+      };
+
       networking = {
         enable = mkToggle "Enable networking and NetworkManager";
         wifi.enable = mkToggle "Enable WiFi backend";
