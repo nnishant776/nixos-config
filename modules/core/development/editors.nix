@@ -10,13 +10,5 @@ let
     ++ lib.optionals dev.editors.neovim.enable (getPackages dev.editors.neovim (with pkgs; [ neovim ]))
     ++ lib.optionals dev.editors.emacs.enable (getPackages dev.editors.emacs (with pkgs; [ emacs libtool ]));
 in {
-  config = {
-    environment.systemPackages = lib.optionals dev.enable editorPackages;
-
-    programs.nix-ld.libraries = lib.mkIf (config.programs.nix-ld.enable or false && dev.enable) (
-      lib.optionals dev.editors.vscode.enable dev.editors.vscode.nix-ldLibraries
-      ++ lib.optionals dev.editors.neovim.enable dev.editors.neovim.nix-ldLibraries
-      ++ lib.optionals dev.editors.emacs.enable (dev.editors.emacs.nix-ldLibraries ++ [ pkgs.libtool ])
-    );
-  };
+  config.environment.systemPackages = lib.optionals dev.enable editorPackages;
 }

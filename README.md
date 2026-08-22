@@ -17,6 +17,10 @@ presets that every host can selectively override.
 │   └── default.nix                  # this machine's myconf.* settings
 └── modules/
     ├── core/                        # shared baseline loaded on every host
+    │   ├── base-packages.nix        # canonical CLI tool list (single source)
+    │   ├── base.nix                 # installs the baseline (+ bash) system-wide
+    │   └── development/             # myconf.development packages (Linux + macOS)
+    │       ├── default.nix · sdk.nix · editors.nix · tools.nix
     ├── myconf/                      # the configuration interface
     │   ├── options.nix              # declares the full myconf.* option tree
     │   ├── profile.nix              # profile presets (applied via lib.mkDefault)
@@ -27,13 +31,13 @@ presets that every host can selectively override.
     │   └── git.nix                  # git configuration
     └── system/
         ├── linux/                   # NixOS implementation of myconf.*
-        │   ├── base.nix             # always-on CLI toolset + nix-index + nix-ld
+        │   ├── base.nix             # NixOS-only infra: PATH vars, nix-index, nix-ld
         │   ├── host.nix             # hostname, users, group grants from myconf.host
         │   ├── locale.nix           # i18n from myconf.host.locale
-        │   ├── development/         # myconf.development  → sdk / editors / tools
+        │   ├── development/         # myconf.development nix-ld export (Linux-only)
         │   ├── services/            # myconf.systemServices.*, one file per service
         │   └── desktop/             # myconf.desktop.*  → apps, fonts, shells
-        └── darwin/                  # macOS implementation (settings, packages)
+        └── darwin/                  # macOS implementation (settings)
 ```
 
 ## How Configuration Works
@@ -57,7 +61,7 @@ Adding a machine requires no changes to the flake itself:
 | Layer | Module | Role |
 |---|---|---|
 | 1 | `hosts/<name>/default.nix` | your settings (highest effective priority) |
-| 2 | `modules/core` | cross-platform baseline |
+| 2 | `modules/core` | cross-platform baseline: CLI tools, dev tooling |
 | 3 | `modules/myconf` | option declarations + profile presets + implications |
 | 4 | `{ nixpkgs.hostPlatform = <system>; }` | platform plumbing |
 | 5 | `modules/home/home-manager.nix` | Home-Manager wiring for each enabled user |
