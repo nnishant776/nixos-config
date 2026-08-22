@@ -46,6 +46,7 @@
       };
       tools = {
         gemini.enable = true;
+        opencode.enable = true;
         rtk.enable = true;
       };
     };

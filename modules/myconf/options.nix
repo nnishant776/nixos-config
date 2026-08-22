@@ -344,6 +344,7 @@ in {
 
       tools = {
         gemini = mkToolGroup "Gemini / Antigravity CLI";
+        opencode = mkToolGroup "OpenCode CLI";
         rtk    = mkToolGroup "RTK CLI";
       };
     };

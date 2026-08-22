@@ -30,6 +30,7 @@ let
   ++ lib.optionals dev.editors.emacs.enable (getPackages dev.editors.emacs (with pkgs; [ emacs ]))
 
   ++ lib.optionals dev.tools.gemini.enable (getPackages dev.tools.gemini (with pkgs; [ nodejs_22 bun ]))
+  ++ lib.optionals dev.tools.opencode.enable (getPackages dev.tools.opencode (with pkgs; [ opencode ]))
   ++ lib.optionals dev.tools.rtk.enable (getPackages dev.tools.rtk (with pkgs; [ rtk ]));
 
 in {
