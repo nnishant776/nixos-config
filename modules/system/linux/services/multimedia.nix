@@ -1,7 +1,7 @@
 { pkgs, lib, config, ... }:
 let
-  cfg = config.myconf.systemServices.audio;
-  baseAudioPackages = with pkgs; [
+  cfg = config.myconf.systemServices.multimedia;
+  baseMultimediaPackages = with pkgs; [
     # Standard audio/video frameworks and plugins
     ffmpeg
     gst_all_1.gstreamer
@@ -27,15 +27,15 @@ let
     wireplumber
   ];
 
-  selectedAudioPackages = baseAudioPackages ++ cfg.extraPackages;
+  selectedMultimediaPackages = baseMultimediaPackages ++ cfg.extraPackages;
 
 in {
   config = lib.mkIf cfg.enable {
-    environment.systemPackages = selectedAudioPackages;
+    environment.systemPackages = selectedMultimediaPackages;
 
     # Automatically export multimedia libraries via nix-ld
     programs.nix-ld.libraries = lib.mkIf (config.programs.nix-ld.enable or false) (
-      selectedAudioPackages ++ cfg.nix-ldLibraries
+      selectedMultimediaPackages ++ cfg.nix-ldLibraries
     );
   };
 }

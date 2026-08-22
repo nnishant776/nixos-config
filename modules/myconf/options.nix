@@ -198,17 +198,17 @@ in {
         wifi.enable = mkToggle "Enable WiFi backend";
       };
 
-      audio = {
-        enable = mkToggle "Enable PipeWire audio stack";
+      multimedia = {
+        enable = mkToggle "Enable audio/video stack";
         extraPackages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
           default = [];
-          description = "Extra audio/multimedia packages.";
+          description = "Extra audio/video multimedia packages.";
         };
         nix-ldLibraries = lib.mkOption {
           type = lib.types.listOf lib.types.package;
           default = [];
-          description = "Runtime shared libraries exported to nix-ld for audio.";
+          description = "Runtime shared libraries exported to nix-ld for audio/video.";
         };
       };
 

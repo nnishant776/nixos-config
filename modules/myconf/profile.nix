@@ -22,7 +22,7 @@ in {
     (lib.mkIf (cfg.profile == "workstation") {
       myconf.systemServices.networking.enable      = mk true;
       myconf.systemServices.networking.wifi.enable = mk true;
-      myconf.systemServices.audio.enable           = mk true;
+      myconf.systemServices.multimedia.enable      = mk true;
       myconf.systemServices.graphics.enable        = mk true;
       myconf.desktop.enable                        = mk true;
       myconf.systemServices.powerManagement.enable = mk true;
@@ -33,7 +33,7 @@ in {
     (lib.mkIf (cfg.profile == "developer") {
       myconf.systemServices.networking.enable       = mk true;
       myconf.systemServices.networking.wifi.enable  = mk true;
-      myconf.systemServices.audio.enable            = mk true;
+      myconf.systemServices.multimedia.enable       = mk true;
       myconf.systemServices.graphics.enable         = mk true;
       myconf.desktop.enable                         = mk true;
       myconf.systemServices.powerManagement.enable  = mk true;
@@ -59,7 +59,7 @@ in {
     (lib.mkIf (cfg.profile == "gaming") {
       myconf.systemServices.networking.enable      = mk true;
       myconf.systemServices.networking.wifi.enable = mk true;
-      myconf.systemServices.audio.enable           = mk true;
+      myconf.systemServices.multimedia.enable      = mk true;
       myconf.systemServices.graphics.enable        = mk true;
       myconf.desktop.enable                        = mk true;
       myconf.systemServices.powerManagement.enable = mk true;

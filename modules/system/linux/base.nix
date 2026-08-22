@@ -1,4 +1,4 @@
-{ inputs, config, pkgs, lib, ... }:
+{ config, pkgs, ... }:
 let
   basePackages = with pkgs; [
     # Core Tools
@@ -57,14 +57,6 @@ let
   ];
 
 in {
-  imports = [
-    ./development.nix
-    ./fonts.nix
-    ./multimedia.nix
-    ./containerisation.nix
-    ./virtualisation.nix
-  ];
-
   config = {
     environment.sessionVariables = {
       PATH = [ "/usr/local/bin" "/usr/bin" "/opt/bin" ];
@@ -80,7 +72,7 @@ in {
     # Enable nix-ld for precompiled dynamic binary execution
     programs.nix-ld = {
       enable = true;
-      libraries = with pkgs; [
+      libraries = with pkgs; basePackages ++ [
         zlib
         zstd
         stdenv.cc.cc

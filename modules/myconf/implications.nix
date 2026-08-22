@@ -6,7 +6,7 @@ in {
   config = lib.mkMerge [
     # ── Desktop implications ──
     (lib.mkIf cfg.desktop.enable {
-      myconf.systemServices.audio.enable           = mk true;
+      myconf.systemServices.multimedia.enable      = mk true;
       myconf.systemServices.graphics.enable        = mk true;
       myconf.systemServices.powerManagement.enable = mk true;
       myconf.systemServices.flatpak.enable         = mk true;

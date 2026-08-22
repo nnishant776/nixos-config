@@ -2,6 +2,7 @@
   imports = [
     ./shells
     ./apps.nix
+    ./fonts.nix
   ];
 
   config = lib.mkIf config.myconf.desktop.enable {
