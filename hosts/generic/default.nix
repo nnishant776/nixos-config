@@ -44,7 +44,7 @@
     desktop = {
       enable = true;
       environment = "all";
-      environments.hyprland.shell = "caelestia";
+      environments.hyprland.shell = "noctalia";
     };
     packages = {
       fonts = {

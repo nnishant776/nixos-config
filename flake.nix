@@ -18,6 +18,10 @@
       url = "github:caelestia-dots/shell";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    noctalia = {
+      url = "github:noctalia-dev/noctalia";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =  inputs@{ self, ... }:
@@ -52,6 +56,7 @@
               {
                 home-manager.extraSpecialArgs = { inherit pkgs; inherit inputs; };
               }
+              inputs.noctalia.nixosModules.default
             ];
             specialArgs = {
               inherit inputs;

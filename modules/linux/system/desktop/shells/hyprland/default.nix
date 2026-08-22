@@ -2,5 +2,6 @@
   imports = [
     ./hyprland.nix
     ./caelestia.nix
+    ./noctalia.nix
   ];
 }

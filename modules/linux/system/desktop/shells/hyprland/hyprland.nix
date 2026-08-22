@@ -38,7 +38,6 @@
       kitty
       slurp
       hyprshot
-      swaynotificationcenter
       waybar
       nwg-displays
       wl-mirror
@@ -52,6 +51,8 @@
       # Configuration management dependencies
       lua
       luarocks
+    ] ++ lib.optionals (config.system.desktop.environments.hyprland.shell == "none") [
+      swaynotificationcenter
     ];
   };
 }
