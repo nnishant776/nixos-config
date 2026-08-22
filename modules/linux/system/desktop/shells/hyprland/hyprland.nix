@@ -24,35 +24,38 @@
       xwayland = {
         enable = true;
       };
+      portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
     };
 
     # Install Sway specific applications
     environment.systemPackages = with pkgs; [
-      # App launchers
-      wmenu
-      wofi
-
       # Desktop utilities
-      grim
-      hyprpaper
       kitty
-      slurp
-      hyprshot
-      waybar
       nwg-displays
       wl-mirror
       wlr-randr
-      hyprlauncher
-
-      # Session management
-      hypridle
-      hyprlock
+      gpu-screen-recorder
 
       # Configuration management dependencies
       lua
       luarocks
     ] ++ lib.optionals (config.system.desktop.environments.hyprland.shell == "none") [
+      # App launchers
+      wofi
+      rofi
+      hyprlauncher
+
+      # Desktop Utilities
       swaynotificationcenter
+      waybar
+      hyprpaper
+      grim
+      slurp
+
+      # Session management
+      hyprshot
+      hypridle
+      hyprlock
     ];
   };
 }
