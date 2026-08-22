@@ -1,68 +1,55 @@
 {
-  description = "A very basic flake";
+  description = "Multi-platform NixOS / Darwin configuration flake";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-26.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+
+    nix-darwin = {
+      url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     apple-fonts.url = "github:Lyndeno/apple-fonts.nix";
-    nix-ld.url = "github:Mic92/nix-ld";
+
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     hyprland = {
       url = "github:hyprwm/Hyprland/v0.55.4?submodules=true";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     caelestia-shell = {
       url = "github:caelestia-dots/shell";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     noctalia = {
       url = "github:noctalia-dev/noctalia";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs =  inputs@{ self, ... }:
-    let
-      lib = inputs.nixpkgs.lib;
+  outputs = inputs@{ self, nixpkgs, ... }:
+  let
+    lib = nixpkgs.lib;
+    mkHost = import ./lib/mkHost.nix { inherit inputs; };
 
-      hosts = builtins.filter (x: x != null) (
-        lib.mapAttrsToList (name: value: if (value == "directory") then name else null) (
-          builtins.readDir ./hosts
-        )
-      );
+    hostNames = builtins.attrNames (
+      lib.filterAttrs (_: t: t == "directory") (builtins.readDir ./hosts)
+    );
 
-      pkgs = import inputs.nixpkgs {
-        config = {
-          allowUnfree = true;
-          allowUnfreePredicate = (_: true);
-        };
-      };
-    in {
-      # Generate a nixos configuration for every host in ./hosts
-      nixosConfigurations = builtins.listToAttrs (
-        map (host: {
-          name = host;
-          value = lib.nixosSystem {
-            modules = [
-              { system.stateVersion = "26.05"; }
-              (./hardware-configuration.nix)
-              (./hosts + "/${host}")
-              ./modules/linux
-              (./override.nix)
-              inputs.home-manager.nixosModules.home-manager
-              {
-                home-manager.extraSpecialArgs = { inherit pkgs; inherit inputs; };
-              }
-              inputs.noctalia.nixosModules.default
-            ];
-            specialArgs = {
-              inherit inputs;
-            };
-          };
-        }) hosts
-      );
-    };
+    hostMeta = lib.genAttrs hostNames (h:
+      import (./hosts + "/${h}/meta.nix")
+    );
+
+    linuxHosts = lib.filterAttrs (_: m: (lib.systems.elaborate m.system).isLinux) hostMeta;
+    darwinHosts = lib.filterAttrs (_: m: (lib.systems.elaborate m.system).isDarwin) hostMeta;
+  in {
+    nixosConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) linuxHosts;
+    darwinConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) darwinHosts;
+  };
 }
