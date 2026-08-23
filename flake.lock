@@ -14,11 +14,11 @@
         "sf-pro": "sf-pro"
       },
       "locked": {
-        "lastModified": 1782587760,
-        "narHash": "sha256-I9PRLePA5QNKEyDFsN5eIVk0dxFRGAL0Z/LjOWnA75Y=",
+        "lastModified": 1787373040,
+        "narHash": "sha256-mSpL69LSAA/+cQx+v9tC2XC/DD7cUepUmhiMx0/Hw64=",
         "owner": "Lyndeno",
         "repo": "apple-fonts.nix",
-        "rev": "ce044f6829c6b3ccde9624116577ba2c173ca49d",
+        "rev": "69f20e9ba294420e4b6407a827c6b5aea3afcc12",
         "type": "github"
       },
       "original": {
@@ -97,11 +97,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785555198,
-        "narHash": "sha256-qR5i58eQTPUYeqvm4OD1pYYDwYjJWuSdCp+0RVlJj/M=",
+        "lastModified": 1787276686,
+        "narHash": "sha256-rYdGb5rKIfETdlenQRxHfg17dhf9fN8eaRryX6sztnQ=",
         "owner": "caelestia-dots",
         "repo": "cli",
-        "rev": "1a228f9b5566a6e8777a78b086284390357e3640",
+        "rev": "7401d9e3a371e583bc0b42dc1a139d01e278e6c1",
         "type": "github"
       },
       "original": {
@@ -120,11 +120,11 @@
         "quickshell": "quickshell"
       },
       "locked": {
-        "lastModified": 1786013040,
-        "narHash": "sha256-/RABHr0dLEjX0Nktpe36Wdg8IUbc3BQLu/Hm4DOmPNI=",
+        "lastModified": 1787455880,
+        "narHash": "sha256-JRICTpsYY3rD9CldgbIYWICHp8KDis0I7QafNkRGhac=",
         "owner": "caelestia-dots",
         "repo": "shell",
-        "rev": "94d5eb9e6fe9c6b1f69e663d9ed410a441e2d67f",
+        "rev": "4c69204d8d7b2dac6950b4de9055465229359f55",
         "type": "github"
       },
       "original": {
@@ -200,11 +200,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783744526,
-        "narHash": "sha256-yYVxW+uIbCx0Nt870fbErQbz+b2+3Gwpppe+JbIU+Co=",
+        "lastModified": 1787487906,
+        "narHash": "sha256-zIdM+8teujHm5hc5MIPDnV7k2UeOOT/pFyFtWjOCwsY=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "2afec152df4e284d264f8489d16004c264aebf4c",
+        "rev": "cfba7ad5886b342b8dd63ba74354b3853ea4cfc9",
         "type": "github"
       },
       "original": {
@@ -592,11 +592,11 @@
     },
     "nixpkgs-unstable": {
       "locked": {
-        "lastModified": 1783522502,
-        "narHash": "sha256-iffAls3iaNTyJC2faYcUXSI+Gp02cDjYl+MygxKl2GI=",
+        "lastModified": 1787360063,
+        "narHash": "sha256-dt4WdcvsA8/RCe+VZZwqU0X+XMM3wBbGCWA0/sFWzGo=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "0bb7ec54c8483066ec9d7720e780a5caa71f8612",
+        "rev": "2c423e03bbafcff28bfadc6781a4a8257f205cb5",
         "type": "github"
       },
       "original": {
@@ -608,11 +608,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1783703440,
-        "narHash": "sha256-O3/YajjWo001VUIgD8BwaRdSNLUFe7nZ1qV5TwhRBcw=",
+        "lastModified": 1787414105,
+        "narHash": "sha256-WncT27+3BOkgTaJZLnCsf3LcYf9RXMuR9ONSN4rzQ7s=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "8f0500b9660505dc3cb647775fe9a978a74b5283",
+        "rev": "a9e6d84f9c2f9012f5fe7d964a7851352300e61a",
         "type": "github"
       },
       "original": {
@@ -629,11 +629,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787311790,
-        "narHash": "sha256-unzdxVphY9aAR+GX8U1hZzgBPYhq5kf+8SGOcRUm/P8=",
+        "lastModified": 1787490503,
+        "narHash": "sha256-Iys/51B9mcbrFjy9KwgdKOCeKF4ryJLh+UJYb3Eapl8=",
         "owner": "noctalia-dev",
         "repo": "noctalia",
-        "rev": "69a90183531de388cab40e84a3a221ba94464501",
+        "rev": "a9cd1c86bdd6a231fc2b07c3b7a2505175a864d3",
         "type": "github"
       },
       "original": {
@@ -685,11 +685,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785134238,
-        "narHash": "sha256-bv5gar+ZAXZCJH7UOv0eRFILKt5RKA/3px/XbVR98Cg=",
+        "lastModified": 1787440121,
+        "narHash": "sha256-OZdLL1rMR9kjTFZroOODeyQ0u6nrSxcFHlK6JUi+R/c=",
         "ref": "refs/heads/master",
-        "rev": "43d4fa9e883cb03239b3d578c9c57070f4fbd281",
-        "revCount": 834,
+        "rev": "0fed22a2c47d9568ddf13cf61586b3f2ac4378a2",
+        "revCount": 847,
         "type": "git",
         "url": "https://git.outfoxxed.me/outfoxxed/quickshell"
       },
@@ -737,7 +737,7 @@
     "sf-compact": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-C2TR3mVBorgBfdP7+L0YDq1ctefH62+iEBi19zlEpLU=",
+        "narHash": "sha256-83JwqfF9O4+gemMQXWHLRg2GNz2jHxsej1F1IkM2dug=",
         "type": "file",
         "url": "https://devimages-cdn.apple.com/design/resources/download/SF-Compact.dmg"
       },
@@ -785,7 +785,7 @@
     "sf-pro": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-56SORX7J5qTO9xrd4Zvgfwr8GBUrIzLc6pzg5C0c+zU=",
+        "narHash": "sha256-vINUEMyFmNzZRBOX2aQ4heScWur6RyA/MPmsqlMPIx4=",
         "type": "file",
         "url": "https://devimages-cdn.apple.com/design/resources/download/SF-Pro.dmg"
       },
