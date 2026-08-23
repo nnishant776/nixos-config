@@ -18,13 +18,15 @@ let
     pavucontrol
 
     # Internet Browsers
-    chromium
-    widevine-cdm                # For Chromium
+    widevine-cdm
+    (chromium.override { enableWideVine = true; })
   ];
 in {
   config = lib.mkIf config.myconf.desktop.enable {
     environment.systemPackages =
       (if config.myconf.desktop.packages != [] then config.myconf.desktop.packages else defaultDesktopPackages)
       ++ config.myconf.desktop.extraPackages;
+
+    programs.chromium.enable = true;
   };
 }

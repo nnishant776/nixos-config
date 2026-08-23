@@ -1,7 +1,7 @@
 { pkgs, lib, config, ... }: {
   imports = [
     ./shells
-    ./apps.nix
+    ./base.nix
     ./fonts.nix
   ];
 
