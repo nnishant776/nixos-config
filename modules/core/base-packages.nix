@@ -9,6 +9,7 @@ with pkgs; [
   file
   which
   tree
+  tmux
 
   # System Monitoring
   procs
