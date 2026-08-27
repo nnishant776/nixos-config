@@ -41,6 +41,7 @@ in
         ../modules/system/linux
         inputs.home-manager.nixosModules.home-manager
         inputs.noctalia.nixosModules.default
+        inputs.noctalia-greeter.nixosModules.default
         inputs.disko.nixosModules.disko
       ];
       specialArgs = { inherit inputs; };
