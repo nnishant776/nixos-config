@@ -10,9 +10,17 @@ let
 
   hardwareCfgPath =
     let perHost = hostDir + "/hardware-configuration.nix";
-    in if builtins.pathExists perHost
-       then perHost
-       else null;
+    in
+      if builtins.pathExists perHost
+      then perHost
+      else "/etc/nixos/hardware-configuration.nix";
+
+  diskoCfgPath =
+    let perHost = hostDir + "/disko-config.nix";
+    in
+      if builtins.pathExists perHost
+      then perHost
+      else null;
 
   commonModules = [
     (hostDir + "/default.nix")
@@ -27,11 +35,13 @@ in
       modules = commonModules ++ [
         { system.stateVersion = "26.05"; }
       ]
-      ++ lib.optional (hardwareCfgPath != null) hardwareCfgPath
+      ++ [ hardwareCfgPath ]
+      ++ lib.optionals (diskoCfgPath != null) [ diskoCfgPath ]
       ++ [
         ../modules/system/linux
         inputs.home-manager.nixosModules.home-manager
         inputs.noctalia.nixosModules.default
+        inputs.disko.nixosModules.disko
       ];
       specialArgs = { inherit inputs; };
     }
