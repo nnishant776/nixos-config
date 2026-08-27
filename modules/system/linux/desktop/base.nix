@@ -20,6 +20,10 @@ let
     # Internet Browsers
     widevine-cdm
     (chromium.override { enableWideVine = true; })
+
+    # File browsers
+    thunar
+    nautilus
   ];
 in {
   config = lib.mkIf config.myconf.desktop.enable {
