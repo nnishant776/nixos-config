@@ -12,6 +12,9 @@
         "window.filename": "rootrel",
         "[nix]": {
             "editor.tabSize": 2
+        },
+        "[json]": {
+            "editor.tabSize": 4
         }
     }
 }
