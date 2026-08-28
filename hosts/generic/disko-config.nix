@@ -1,4 +1,4 @@
-{ inputs, config, ... }:
+{ ... }:
 {
   disko.devices.disk.main = {
     device = "/dev/sda"; # Change to your target disk device (e.g., /dev/nvme0n1)
