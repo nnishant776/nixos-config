@@ -58,8 +58,36 @@
 
     linuxHosts = lib.filterAttrs (_: m: (lib.systems.elaborate m.system).isLinux) hostMeta;
     darwinHosts = lib.filterAttrs (_: m: (lib.systems.elaborate m.system).isDarwin) hostMeta;
+
+    osInstallApps = lib.mapAttrs (system: _:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        disko = inputs.disko.packages.${system}.disko;
+        script = pkgs.writeShellScriptBin "os-install" ''
+          set -euo pipefail
+          host="$1"
+          if [ -z "''${host:-}" ]; then
+            echo "usage: os-install <hostname>" >&2
+            exit 1
+          fi
+          diskoConfig="${self}/hosts/$host/disko-config.nix"
+          if [ -f "$diskoConfig" ]; then
+            ${disko}/bin/disko --mode disko "$diskoConfig"
+          else
+            echo "warning: no disko-config.nix for host '$host', skipping disko (falling back to hardware-configuration.nix)" >&2
+          fi
+          exec nixos-rebuild switch --flake "${self}#$host"
+        '';
+      in {
+        os-install = {
+          type = "app";
+          program = "${script}/bin/os-install";
+        };
+      })
+    (lib.groupBy (m: m.system) (lib.attrValues linuxHosts));
   in {
     nixosConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) linuxHosts;
     darwinConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) darwinHosts;
+    apps = osInstallApps;
   };
 }
