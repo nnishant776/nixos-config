@@ -71,7 +71,9 @@
             exit 1
           fi
           diskoConfig="${self}/hosts/$host/disko-config.nix"
-          if [ -f "$diskoConfig" ]; then
+          if [ -f /root/.disko-partitioning.done ]; then
+            echo "warning: partitioning already done for host '$host', skipping disko" >&2
+          elif [ -f "$diskoConfig" ]; then
             ${disko}/bin/disko --mode disko "$diskoConfig"
           else
             echo "warning: no disko-config.nix for host '$host', skipping disko (falling back to hardware-configuration.nix)" >&2
