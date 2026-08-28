@@ -75,10 +75,11 @@
             echo "warning: partitioning already done for host '$host', skipping disko" >&2
           elif [ -f "$diskoConfig" ]; then
             ${disko}/bin/disko --mode disko "$diskoConfig"
+            touch /root/.disko-partitioning.done
           else
             echo "warning: no disko-config.nix for host '$host', skipping disko (falling back to hardware-configuration.nix)" >&2
           fi
-          exec nixos-rebuild switch --flake "${self}#$host"
+          exec nixos-install --root /mnt --flake "${self}#$host"
         '';
       in {
         os-install = {
