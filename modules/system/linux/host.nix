@@ -19,5 +19,34 @@
 
     # Set timezone
     time.timeZone = config.myconf.host.timezone;
+
+    # Set up first boot tasks
+    systemd.services.run-once-on-first-boot = {
+      description = "Run script exactly once on first boot";
+
+      # Ensure it runs late enough if you need networking or full system initialized
+      after = [ "multi-user.target" ];
+      wantedBy = [ "multi-user.target" ];
+
+      # This condition prevents the service from running if the file already exists
+      unitConfig = {
+        ConditionPathExists = "!/var/lib/run-once-on-first-boot.done";
+      };
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+
+      script = ''
+        echo "Executing first-boot initialization tasks..."
+
+        # Commands to run on first boot
+        touch /root/.disko-partitioning.done
+
+        # Create the token file so this service is skipped on subsequent boots
+        touch /var/lib/run-once-on-first-boot.done
+      '';
+    };
   };
 }
