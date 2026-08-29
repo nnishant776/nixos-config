@@ -85,6 +85,9 @@
             # there is no $out/bin/disko — see makeScriptWriter). Run it directly.
             if "$diskoScript"; then
               touch /root/.disko-partitioning.done
+              if [ ! "$(ls /dev/disk/by-partlabel/*swap*)" = "" ]; then
+                swapon $(ls /dev/disk/by-partlabel/*swap*)
+              fi
             else
               echo "error: disko partitioning failed for host '$host'" >&2
               exit 1
