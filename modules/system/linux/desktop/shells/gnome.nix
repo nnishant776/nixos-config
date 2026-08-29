@@ -33,5 +33,15 @@ in {
       yelp
       gnome-software
     ];
+
+    services = {
+      gnome = {
+        sushi.enable = true;
+        evolution-data-server.enable = true;
+        glib-networking.enable = true;
+        gnome-keyring.enable = true;
+        gnome-online-accounts.enable = true;
+      };
+    };
   };
 }
