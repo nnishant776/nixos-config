@@ -193,6 +193,11 @@ in {
     # ── System Services & Infrastructure ──
     systemServices = {
       bootloader = {
+        method = lib.mkOption {
+          type = lib.types.enum [ "bios" "uefi" ];
+          default = "uefi";
+          description = "Select a boot method (BIOS or UEFI)";
+        };
         program = lib.mkOption {
           type = lib.types.nullOr (lib.types.enum ["systemd-boot" "grub" "uboot"]);
           default = "systemd-boot";

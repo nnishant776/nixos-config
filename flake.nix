@@ -62,7 +62,6 @@
     osInstallApps = lib.mapAttrs (system: _:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        disko = inputs.disko.packages.${system}.disko;
         script = pkgs.writeShellScriptBin "os-install" ''
           set -euo pipefail
           host="$1"
@@ -70,15 +69,28 @@
             echo "usage: os-install <hostname>" >&2
             exit 1
           fi
-          diskoConfig="${self}/hosts/$host/disko-config.nix"
+
+          # Partition/format using the disko script generated from the FULLY
+          # EVALUATED NixOS configuration for this host. Because it is built from
+          # `config.disko.devices`, any per-host conditionals based on
+          # `conf.*` (e.g. conf.systemServices.bootloader.method) are already
+          # resolved — unlike `disko --mode disko <raw disko-config.nix>`,
+          # which runs the file standalone without access to the `conf.*` tree.
           if [ -f /root/.disko-partitioning.done ]; then
             echo "warning: partitioning already done for host '$host', skipping disko" >&2
-          elif [ -f "$diskoConfig" ]; then
-            ${disko}/bin/disko --mode disko "$diskoConfig"
-            touch /root/.disko-partitioning.done
           else
-            echo "warning: no disko-config.nix for host '$host', skipping disko (falling back to hardware-configuration.nix)" >&2
+            diskoScript="$(nix build --no-link --print-out-paths "${self}#nixosConfigurations.''${host}.config.system.build.diskoScript")"
+            # The generated `diskoScript` is a single executable: `$out` is a
+            # symlink to the script itself (disko uses a plain writer name, so
+            # there is no $out/bin/disko — see makeScriptWriter). Run it directly.
+            if "$diskoScript"; then
+              touch /root/.disko-partitioning.done
+            else
+              echo "error: disko partitioning failed for host '$host'" >&2
+              exit 1
+            fi
           fi
+
           exec nixos-install --root /mnt --flake "${self}#$host"
         '';
       in {

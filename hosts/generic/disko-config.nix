@@ -1,4 +1,4 @@
-{ ... }:
+{ config, lib, ... }:
 {
   disko.devices.disk.main = {
     device = "/dev/sda"; # Change to your target disk device (e.g., /dev/nvme0n1)
@@ -6,7 +6,11 @@
     content = {
       type = "gpt";
       partitions = {
-        boot = {
+        bios_boot = lib.mkIf (config.conf.systemServices.bootloader.method == "bios") {
+          type = "EF02";
+          size = "1M";
+        };
+        boot = lib.mkIf (config.conf.systemServices.bootloader.method == "uefi") {
           size = "1G";
           type = "EF00";
           content = {

@@ -11,5 +11,9 @@ in {
       conf.systemServices.powerManagement.enable = mk true;
       conf.systemServices.flatpak.enable         = mk true;
     })
+
+    (lib.mkIf (cfg.systemServices.bootloader.method == "bios") {
+      conf.systemServices.bootloader.program = mk "grub";
+    })
   ];
 }
