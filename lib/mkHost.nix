@@ -23,6 +23,7 @@ let
       else null;
 
   commonModules = [
+    ../overlays.nix
     (hostDir + "/default.nix")
     ../modules/core
     ../modules/conf

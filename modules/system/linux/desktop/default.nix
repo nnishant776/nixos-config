@@ -26,6 +26,17 @@
 
     xdg.portal = {
       enable = true;
+      extraPortals = [ pkgs.xdg-desktop-portal-gnome ];
+      config = {
+        common = {
+          default = [
+            "gnome"
+            "kde"
+            "hyprland"
+            "gtk"
+          ];
+        };
+      };
       wlr.enable = true;
     };
 
