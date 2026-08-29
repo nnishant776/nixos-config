@@ -334,24 +334,7 @@ in {
       editors = {
         neovim = mkEditorGroup "Neovim";
         emacs  = mkEditorGroup "Emacs";
-        vscode = {
-          enable = mkToggle "Enable VSCode";
-          packages = lib.mkOption {
-            type = lib.types.listOf lib.types.package;
-            default = [];
-            description = "Default packages for VSCode.";
-          };
-          extraPackages = lib.mkOption {
-            type = lib.types.listOf lib.types.package;
-            default = [];
-            description = "Extra packages for VSCode.";
-          };
-          nix-ldLibraries = lib.mkOption {
-            type = lib.types.listOf lib.types.package;
-            default = [];
-            description = "Runtime shared libraries exported to nix-ld for VSCode.";
-          };
-        };
+        vscode = mkEditorGroup "VSCode";
       };
 
       tools = {
