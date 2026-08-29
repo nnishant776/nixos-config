@@ -1,6 +1,6 @@
 { pkgs, lib, config, ... }:
 let
-  cfg = config.myconf.systemServices.virtualisation;
+  cfg = config.conf.systemServices.virtualisation;
   virtPackages = with pkgs; [
     qemu
     qemu_kvm

@@ -25,7 +25,7 @@ let
   commonModules = [
     (hostDir + "/default.nix")
     ../modules/core
-    ../modules/myconf
+    ../modules/conf
     { nixpkgs.hostPlatform = system; }
     ../modules/home/home-manager.nix
   ];

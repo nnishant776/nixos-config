@@ -1,6 +1,6 @@
 { pkgs, lib, config, ... }:
 let
-  dev = config.myconf.development;
+  dev = config.conf.development;
 in {
   # Export development runtime libraries via nix-ld (Linux only)
   config.programs.nix-ld.libraries = lib.mkIf (config.programs.nix-ld.enable or false && dev.enable) (

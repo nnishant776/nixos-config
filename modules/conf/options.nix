@@ -110,7 +110,7 @@ let
   };
 
 in {
-  options.myconf = {
+  options.conf = {
     # ── Host Configuration ──
     host = {
       name = lib.mkOption {

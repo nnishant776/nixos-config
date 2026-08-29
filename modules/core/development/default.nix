@@ -1,6 +1,6 @@
 { pkgs, lib, config, ... }:
 let
-  dev = config.myconf.development;
+  dev = config.conf.development;
 in {
   imports = [
     ./sdk.nix

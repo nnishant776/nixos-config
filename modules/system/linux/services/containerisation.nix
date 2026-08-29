@@ -1,6 +1,6 @@
 { pkgs, lib, config, ... }:
 let
-  cfg = config.myconf.systemServices.containerisation;
+  cfg = config.conf.systemServices.containerisation;
 in {
   config = lib.mkIf cfg.enable {
     virtualisation = {

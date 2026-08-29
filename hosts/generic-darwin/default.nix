@@ -1,5 +1,5 @@
 { config, pkgs, lib, ... }: {
-  myconf = {
+  conf = {
     profile = "developer";
 
     host = {

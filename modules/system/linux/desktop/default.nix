@@ -5,7 +5,7 @@
     ./fonts.nix
   ];
 
-  config = lib.mkIf config.myconf.desktop.enable {
+  config = lib.mkIf config.conf.desktop.enable {
     security = {
       polkit.enable = true;
     };

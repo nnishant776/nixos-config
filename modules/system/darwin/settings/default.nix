@@ -1,14 +1,14 @@
 { config, pkgs, lib, ... }:
 let
-  brewCfg = config.myconf.systemServices.homebrew;
+  brewCfg = config.conf.systemServices.homebrew;
 in {
-  networking.hostName = config.myconf.host.name;
+  networking.hostName = config.conf.host.name;
   system.stateVersion = 6;
 
   users.users = lib.listToAttrs (builtins.map (user: lib.nameValuePair user.name {
     home = "/Users/${user.name}";
     description = user.fullName;
-  }) ([ config.myconf.host.adminUser ] ++ config.myconf.host.extraUsers));
+  }) ([ config.conf.host.adminUser ] ++ config.conf.host.extraUsers));
 
   homebrew = lib.mkIf brewCfg.enable {
     enable = true;

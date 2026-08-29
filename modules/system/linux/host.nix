@@ -1,7 +1,7 @@
 { config, pkgs, lib, ... }: {
   config = {
     # Set hostname
-    networking.hostName = config.myconf.host.name;
+    networking.hostName = config.conf.host.name;
 
     # Add registered users
     users.users = lib.listToAttrs (builtins.map (user: lib.nameValuePair user.name {
@@ -9,16 +9,16 @@
       description = user.fullName;
       extraGroups = lib.unique (
         user.groups
-        ++ lib.optionals config.myconf.desktop.enable [ "video" "input" ]
-        ++ lib.optionals config.myconf.systemServices.containerisation.enable [ "docker" "podman" ]
-        ++ lib.optionals config.myconf.systemServices.virtualisation.enable [ "libvirtd" "kvm" ]
-        ++ lib.optionals config.myconf.systemServices.networking.enable [ "networkmanager" ]
+        ++ lib.optionals config.conf.desktop.enable [ "video" "input" ]
+        ++ lib.optionals config.conf.systemServices.containerisation.enable [ "docker" "podman" ]
+        ++ lib.optionals config.conf.systemServices.virtualisation.enable [ "libvirtd" "kvm" ]
+        ++ lib.optionals config.conf.systemServices.networking.enable [ "networkmanager" ]
       );
       initialHashedPassword = user.initialHashedPassword;
-    }) ([ config.myconf.host.adminUser ] ++ config.myconf.host.extraUsers));
+    }) ([ config.conf.host.adminUser ] ++ config.conf.host.extraUsers));
 
     # Set timezone
-    time.timeZone = config.myconf.host.timezone;
+    time.timeZone = config.conf.host.timezone;
 
     # Set up first boot tasks
     systemd.services.run-once-on-first-boot = {

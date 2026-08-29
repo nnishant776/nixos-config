@@ -26,10 +26,10 @@ let
     nautilus
   ];
 in {
-  config = lib.mkIf config.myconf.desktop.enable {
+  config = lib.mkIf config.conf.desktop.enable {
     environment.systemPackages =
-      (if config.myconf.desktop.packages != [] then config.myconf.desktop.packages else defaultDesktopPackages)
-      ++ config.myconf.desktop.extraPackages;
+      (if config.conf.desktop.packages != [] then config.conf.desktop.packages else defaultDesktopPackages)
+      ++ config.conf.desktop.extraPackages;
 
     programs.chromium.enable = true;
   };

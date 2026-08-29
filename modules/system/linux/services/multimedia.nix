@@ -1,6 +1,6 @@
 { pkgs, lib, config, ... }:
 let
-  cfg = config.myconf.systemServices.multimedia;
+  cfg = config.conf.systemServices.multimedia;
   baseMultimediaPackages = with pkgs; [
     # Standard audio/video frameworks and plugins
     ffmpeg

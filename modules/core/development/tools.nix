@@ -1,6 +1,6 @@
 { pkgs, lib, config, ... }:
 let
-  dev = config.myconf.development;
+  dev = config.conf.development;
 
   getPackages = group: defaultPkgs:
     (if group.packages != [] then group.packages else defaultPkgs) ++ group.extraPackages;

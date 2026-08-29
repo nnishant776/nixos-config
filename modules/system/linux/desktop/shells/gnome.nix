@@ -1,6 +1,6 @@
 { pkgs, lib, config, ... }:
 let
-  isGnome = config.myconf.desktop.enable && (config.myconf.desktop.environment == "gnome" || config.myconf.desktop.environment == "all");
+  isGnome = config.conf.desktop.enable && (config.conf.desktop.environment == "gnome" || config.conf.desktop.environment == "all");
 in {
   config = lib.mkIf isGnome {
     # Enable GDM login manager

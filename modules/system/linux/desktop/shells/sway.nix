@@ -1,6 +1,6 @@
 { pkgs, lib, config, ... }:
 let
-  isSway = config.myconf.desktop.enable && (config.myconf.desktop.environment == "sway" || config.myconf.desktop.environment == "all");
+  isSway = config.conf.desktop.enable && (config.conf.desktop.environment == "sway" || config.conf.desktop.environment == "all");
 in {
   config = lib.mkIf isSway {
     # Enable GDM login manager

@@ -1,6 +1,6 @@
 { inputs, pkgs, lib, config, ... }:
 let
-  cfg = config.myconf.desktop;
+  cfg = config.conf.desktop;
   isHyprland = cfg.enable && (cfg.environment == "hyprland" || cfg.environment == "all");
 in {
   config = lib.mkIf isHyprland {

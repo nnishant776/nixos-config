@@ -1,6 +1,6 @@
 { config, lib, pkgs, inputs, ... }:
 let
-  allUsers = [ config.myconf.host.adminUser ] ++ config.myconf.host.extraUsers;
+  allUsers = [ config.conf.host.adminUser ] ++ config.conf.host.extraUsers;
   hmUsers = builtins.filter (u: u.enableHomeManager) allUsers;
 in {
   home-manager = {

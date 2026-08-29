@@ -17,7 +17,7 @@ let
     inputs.apple-fonts.packages.${pkgs.stdenv.hostPlatform.system}.sf-mono
   ];
 in {
-  config = lib.mkIf config.myconf.desktop.enable {
+  config = lib.mkIf config.conf.desktop.enable {
     fonts = {
       enableDefaultPackages = true;
       packages = fontPackages;

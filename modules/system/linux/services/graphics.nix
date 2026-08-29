@@ -1,6 +1,6 @@
 { pkgs, lib, config, ... }:
 let
-  cfg = config.myconf.systemServices.graphics;
+  cfg = config.conf.systemServices.graphics;
   gfxPackages = {
     "intel" = [
       pkgs.intel-media-driver
