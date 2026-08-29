@@ -138,6 +138,13 @@ in {
         default = [];
         description = "Additional system user accounts.";
       };
+      ldLibraries = {
+        enable = lib.mkEnableOption "Enable LD libraries linkage";
+        libraries = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = (import ./default-ld-libs.nix);
+        };
+      };
     };
 
     # ── System Profile Preset ──
