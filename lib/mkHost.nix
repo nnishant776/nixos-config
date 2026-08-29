@@ -44,6 +44,7 @@ in
         inputs.noctalia.nixosModules.default
         inputs.noctalia-greeter.nixosModules.default
         inputs.disko.nixosModules.disko
+        inputs.dms.nixosModules.dank-material-shell
       ];
       specialArgs = { inherit inputs; };
     }

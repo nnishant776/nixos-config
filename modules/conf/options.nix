@@ -172,7 +172,7 @@ in {
       environments = {
         hyprland = {
           shell = lib.mkOption {
-            type = lib.types.enum [ "none" "caelestia" "noctalia" ];
+            type = lib.types.enum [ "none" "caelestia" "noctalia" "dms" ];
             default = "none";
             description = "Optional custom shell for Hyprland.";
           };

@@ -3,5 +3,6 @@
     ./hyprland.nix
     ./caelestia.nix
     ./noctalia.nix
+    ./dms.nix
   ];
 }
