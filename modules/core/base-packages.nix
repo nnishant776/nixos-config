@@ -2,6 +2,7 @@
 
 with pkgs; [
   # Core Tools
+  (coreutils-full.override { withPrefix = false; })
   neovim
   gnumake
   git
@@ -10,17 +11,20 @@ with pkgs; [
   which
   tree
   tmux
+  util-linux
 
   # System Monitoring
   procs
   btop
   dust
   ncdu
+  pciutils
 
   # Archives
   zip
   xz
   zstd
+  zlib
   unzipNLS
   p7zip
   gnutar
