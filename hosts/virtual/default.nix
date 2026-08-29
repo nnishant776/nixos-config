@@ -19,7 +19,7 @@
         vendor = "intel";
       };
       bootloader = {
-        method = "bios";
+        method = "uefi";
       };
     };
 

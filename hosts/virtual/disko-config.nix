@@ -1,7 +1,7 @@
 { config, lib, ... }:
 {
   disko.devices.disk.main = {
-    device = "/dev/sda"; # Change to your target disk device (e.g., /dev/nvme0n1)
+    device = "/dev/vda"; # Change to your target disk device (e.g., /dev/nvme0n1)
     type = "disk";
     content = {
       type = "gpt";
@@ -24,7 +24,7 @@
           };
         };
         swap = {
-          size = "24G"; # Adjust size based on your RAM and hibernation needs
+          size = "4G"; # Adjust size based on your RAM and hibernation needs
           content = {
             type = "swap";
             discardPolicy = "both"; # Enables TRIM for SSDs if supported
