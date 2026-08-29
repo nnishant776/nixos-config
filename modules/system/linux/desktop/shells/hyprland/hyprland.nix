@@ -4,18 +4,28 @@ let
   isHyprland = cfg.enable && (cfg.environment == "hyprland" || cfg.environment == "all");
 in {
   config = lib.mkIf isHyprland {
-    # Enable GDM login manager
-    services.displayManager.gdm.enable = true;
     environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
     # Enable Hyprland
-    programs.hyprland = {
-      enable = true;
-      withUWSM = true;
-      xwayland = {
+    programs = {
+      hyprland = {
         enable = true;
+        withUWSM = true;
+        xwayland = {
+          enable = true;
+        };
+        portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
       };
-      portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
+    };
+
+    services.greetd = lib.mkIf (cfg.environments.hyprland.shell == "none") {
+      enable = true;
+      settings = {
+        default_session = {
+          command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --cmd Hyprland";
+          user = "greeter";
+        };
+      };
     };
 
     # Install Hyprland applications
@@ -47,6 +57,7 @@ in {
       hyprshot
       hypridle
       hyprlock
+      greetd
     ];
   };
 }

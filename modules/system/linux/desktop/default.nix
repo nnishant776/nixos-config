@@ -11,7 +11,8 @@
     };
 
     services = {
-      gvfs.enable = true; # Nautilus
+      gvfs.enable = true;
+      displayManager.enable = true;
       accounts-daemon.enable = true;
       pipewire = {
         enable = true;
@@ -26,7 +27,6 @@
     xdg.portal = {
       enable = true;
       wlr.enable = true;
-      extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
     };
 
     systemd.user.services.polkit-gnome-authentication-agent-1 = {
