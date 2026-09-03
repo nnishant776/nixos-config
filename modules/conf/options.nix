@@ -31,7 +31,7 @@ let
       };
       enableHomeManager = lib.mkOption {
         type = lib.types.bool;
-        default = true;
+        default = false;
         description = "Enable Home-Manager configuration for this user.";
       };
       extraHomeConfig = lib.mkOption {
