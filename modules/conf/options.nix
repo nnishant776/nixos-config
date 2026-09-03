@@ -331,6 +331,20 @@ in {
         lua    = mkSdkGroup "Lua SDK (lua, lua-language-server)";
       };
 
+      fonts = {
+        packages = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = [];
+          description = "List of fonts packages to install";
+        };
+
+        extraPackages = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = [];
+          description = "List of additional fonts packages to install";
+        };
+      };
+
       editors = {
         neovim = mkEditorGroup "Neovim";
         emacs  = mkEditorGroup "Emacs";

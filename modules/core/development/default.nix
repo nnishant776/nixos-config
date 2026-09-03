@@ -5,6 +5,7 @@ in {
   imports = [
     ./sdk.nix
     ./editors.nix
+    ./fonts.nix
     ./tools.nix
   ];
 

@@ -3,6 +3,7 @@
 with pkgs; [
   # Core Tools
   (coreutils-full.override { withPrefix = false; })
+  gettext
   neovim
   gnumake
   git
