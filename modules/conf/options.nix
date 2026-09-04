@@ -328,6 +328,7 @@ in {
         python = mkSdkGroup "Python SDK (python3)";
         java   = mkSdkGroup "Java SDK (Zulu JDK)";
         nix    = mkSdkGroup "Nix Tooling (nil LSP)";
+        cue    = mkSdkGroup "Cuelang tools";
         lua    = mkSdkGroup "Lua SDK (lua, lua-language-server)";
       };
 

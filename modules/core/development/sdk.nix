@@ -3,17 +3,64 @@ let
   dev = config.conf.development;
 
   getPackages = group: defaultPkgs:
-    (if group.packages != [] then group.packages else defaultPkgs) ++ group.extraPackages;
+  (if group.packages != [] then group.packages else defaultPkgs) ++ group.extraPackages;
+
+  defaultBasePackages = with pkgs; [
+    gh
+    tree-sitter
+    nodejs
+    clang
+    tmux
+    fzf
+  ];
+
+  defaultCppPackages = with pkgs; [
+    clang
+    clang-tools
+    cmake
+  ];
+
+  defaultGoPackages = with pkgs; [
+    go
+    gopls
+  ];
+
+  defaultRustPackages = with pkgs; [
+    rustup
+  ];
+
+  defaultPythonPackages = with pkgs; [
+    python3
+  ];
+
+  defaultJavaPackages = with pkgs; [
+    zulu
+  ];
+
+  defaultNixPackages = with pkgs; [
+    nil
+  ];
+
+  defaultLuaPackages = with pkgs; [
+    lua
+    lua-language-server
+  ];
+
+  defaultCuePackages = with pkgs; [
+    cue
+    cuelsp
+  ];
 
   sdkPackages =
-    lib.optionals dev.sdk.base.enable (getPackages dev.sdk.base (with pkgs; [ gh tree-sitter nodejs clang tmux ]))
-    ++ lib.optionals dev.sdk.cpp.enable (getPackages dev.sdk.cpp (with pkgs; [ clang-tools cmake ]))
-    ++ lib.optionals dev.sdk.go.enable (getPackages dev.sdk.go (with pkgs; [ go ]))
-    ++ lib.optionals dev.sdk.rust.enable (getPackages dev.sdk.rust (with pkgs; [ rustup ]))
-    ++ lib.optionals dev.sdk.python.enable (getPackages dev.sdk.python (with pkgs; [ python3 ]))
-    ++ lib.optionals dev.sdk.java.enable (getPackages dev.sdk.java (with pkgs; [ zulu ]))
-    ++ lib.optionals dev.sdk.nix.enable (getPackages dev.sdk.nix (with pkgs; [ nil ]))
-    ++ lib.optionals dev.sdk.lua.enable (getPackages dev.sdk.lua (with pkgs; [ lua lua-language-server ]));
+    lib.optionals dev.sdk.base.enable (getPackages dev.sdk.base (defaultBasePackages))
+    ++ lib.optionals dev.sdk.cpp.enable (getPackages dev.sdk.cpp (defaultCppPackages))
+    ++ lib.optionals dev.sdk.go.enable (getPackages dev.sdk.go (defaultGoPackages))
+    ++ lib.optionals dev.sdk.rust.enable (getPackages dev.sdk.rust (defaultRustPackages))
+    ++ lib.optionals dev.sdk.python.enable (getPackages dev.sdk.python (defaultPythonPackages))
+    ++ lib.optionals dev.sdk.java.enable (getPackages dev.sdk.java (defaultJavaPackages))
+    ++ lib.optionals dev.sdk.nix.enable (getPackages dev.sdk.nix (defaultNixPackages))
+    ++ lib.optionals dev.sdk.nix.enable (getPackages dev.sdk.cue (defaultCuePackages))
+    ++ lib.optionals dev.sdk.lua.enable (getPackages dev.sdk.lua (defaultLuaPackages));
 in {
-  config.environment.systemPackages = lib.optionals dev.enable sdkPackages;
+  environment.systemPackages = lib.optionals dev.enable sdkPackages;
 }
