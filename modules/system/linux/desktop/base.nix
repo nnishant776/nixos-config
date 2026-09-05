@@ -19,7 +19,16 @@ let
 
     # Internet Browsers
     widevine-cdm
-    (chromium.override { enableWideVine = true; })
+    (chromium.override {
+      enableWideVine = true;
+      commandLineArgs = [
+        "--enable-features=AcceleratedVideoEncoder"
+        "--ignore-gpu-blocklist"
+        "--enable-zero-copy"
+        "--enable-features=VaapiIgnoreDriverChecks,VaapiVideoDecoder,PlatformHEVCDecoderSupport"
+        "--enable-features=UseMultiPlaneFormatForHardwareVideo"
+      ];
+    })
     brave
 
     # File browsers
