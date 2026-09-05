@@ -22,11 +22,10 @@ let
     (chromium.override {
       enableWideVine = true;
       commandLineArgs = [
-        "--enable-features=AcceleratedVideoEncoder"
         "--ignore-gpu-blocklist"
         "--enable-zero-copy"
-        "--enable-features=VaapiIgnoreDriverChecks,VaapiVideoDecoder,PlatformHEVCDecoderSupport"
-        "--enable-features=UseMultiPlaneFormatForHardwareVideo"
+        "--ozone-platform-hint=auto"
+        "--enable-features=WebRTCPipeWireCapturer,VaapiIgnoreDriverChecks,VaapiVideoDecoder,PlatformHEVCDecoderSupport,UseMultiPlaneFormatForHardwareVideo,AcceleratedVideoEncoder"
       ];
     })
     brave
