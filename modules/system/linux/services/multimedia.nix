@@ -39,5 +39,7 @@ in {
     programs.nix-ld.libraries = lib.mkIf (config.programs.nix-ld.enable or false) (
       selectedMultimediaPackages ++ cfg.nix-ldLibraries
     );
+
+    security.rtkit.enable = true;
   };
 }
