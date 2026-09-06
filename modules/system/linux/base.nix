@@ -11,5 +11,13 @@
       enable = true;
       libraries = lib.mkIf config.conf.host.ldLibraries.enable config.conf.host.ldLibraries.libraries;
     };
+
+    environment.systemPackages = with pkgs; [
+      # Hardware utilitites
+      usbutils
+      pciutils
+      dmidecode
+      biosdevname
+    ];
   };
 }
