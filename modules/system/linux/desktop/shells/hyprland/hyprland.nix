@@ -4,7 +4,11 @@ let
   isHyprland = cfg.enable && (cfg.environment == "hyprland" || cfg.environment == "all");
 in {
   config = lib.mkIf isHyprland {
+    # Set OZONE env var by default
     environment.sessionVariables.NIXOS_OZONE_WL = "1";
+
+    # Enable UWSM
+    programs.uwsm.enable = true;
 
     # Enable Hyprland
     programs = {
@@ -14,7 +18,16 @@ in {
         xwayland = {
           enable = true;
         };
-        portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
+        portalPackage = pkgs.xdg-desktop-portal-hyprland;
+      };
+    };
+
+    xdg.portal = {
+      extraPortals = [ pkgs.xdg-desktop-portal-hyprland ];
+      config = {
+        hyprland = {
+          default = [ "hyprland" "gtk" "gnome" ];
+        };
       };
     };
 
