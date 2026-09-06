@@ -23,6 +23,7 @@ in {
     (lib.mkIf (cfg.profile == "workstation") {
       conf.systemServices.networking.enable      = mk true;
       conf.systemServices.networking.wifi.enable = mk true;
+      conf.systemServices.networking.bluetooth.enable = mk true;
       conf.systemServices.multimedia.enable      = mk true;
       conf.systemServices.graphics.enable        = mk true;
       conf.systemServices.powerManagement.enable = mk true;
@@ -35,6 +36,7 @@ in {
     (lib.mkIf (cfg.profile == "developer") {
       conf.systemServices.networking.enable       = mk true;
       conf.systemServices.networking.wifi.enable  = mk true;
+      conf.systemServices.networking.bluetooth.enable = mk true;
       conf.systemServices.multimedia.enable       = mk true;
       conf.systemServices.graphics.enable         = mk true;
       conf.systemServices.powerManagement.enable  = mk true;
@@ -62,6 +64,7 @@ in {
     (lib.mkIf (cfg.profile == "gaming") {
       conf.systemServices.networking.enable      = mk true;
       conf.systemServices.networking.wifi.enable = mk true;
+      conf.systemServices.networking.bluetooth.enable = mk true;
       conf.systemServices.multimedia.enable      = mk true;
       conf.systemServices.graphics.enable        = mk true;
       conf.systemServices.powerManagement.enable = mk true;

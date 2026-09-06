@@ -208,6 +208,7 @@ in {
       networking = {
         enable = mkToggle "Enable networking and NetworkManager";
         wifi.enable = mkToggle "Enable WiFi backend";
+        bluetooth.enable = mkToggle "Enable Bluetooth backend";
       };
 
       multimedia = {
