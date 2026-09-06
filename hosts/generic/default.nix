@@ -51,21 +51,4 @@
       };
     };
   };
-
-  fonts.fontconfig = {
-    enable = true;
-    defaultFonts = {
-      serif = [ "LiterationSerif Nerd Font" ];
-      sansSerif = [ "LiterationSans Nerd Font" ];
-      monospace = [ "LiterationMono Nerd Font" ];
-    };
-    hinting = {
-      enable = true;
-      style = "full";
-    };
-    includeUserConf = true;
-    subpixel = {
-      rgba = "rgb";
-    };
-  };
 }

@@ -19,26 +19,29 @@ let
 in {
   config = lib.mkIf config.conf.desktop.enable {
     fonts = {
+      fontDir.enable = true;
       enableDefaultPackages = true;
       packages = fontPackages;
-
       fontconfig = {
         enable = true;
         antialias = true;
         defaultFonts = {
-          serif = [ "Liberation Serif" ];
-          sansSerif = [ "Liberation Sans Serif" ];
-          monospace = [ "Liberation Mono" ];
+          serif = [ "NotoSerif Nerd Font" ];
+          sansSerif = [ "NotoSans Nerd Font" ];
+          monospace = [ "NotoSansM Nerd Font" ];
+          emoji = [ "Noto Color Emoji" ];
         };
         hinting = {
           enable = true;
-          style = "full";
+          autohint = true;
+          style = "slight";
         };
         includeUserConf = true;
         subpixel = {
           rgba = "rgb";
           lcdfilter = "default";
         };
+        useEmbeddedBitmaps = true;
       };
     };
   };
