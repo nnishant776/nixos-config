@@ -1,4 +1,9 @@
-{ config, lib, ... }: {
-  networking.networkmanager.enable = lib.mkDefault config.conf.systemServices.networking.enable;
-  networking.wireless.enable = lib.mkDefault config.conf.systemServices.networking.wifi.enable;
+{ config, lib, ... }:
+let
+  cfg = config.conf.systemServices.networking;
+in {
+  config = lib.mkIf cfg.enable {
+    networking.networkmanager.enable = lib.mkDefault cfg.enable;
+    networking.wireless.enable = lib.mkDefault cfg.wifi.enable;
+  };
 }
