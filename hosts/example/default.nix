@@ -12,15 +12,18 @@
 # every SDK, etc.). Keep this host on a throwaway system or don't switch to it.
 { pkgs, lib, ... }:
 {
-  # ─────────────────────────────────────────────────────────────────────────────
+  nixpkgs.hostPlatform = "x86_64-linux";
+  fileSystems."/" = { device = "/dev/null"; fsType = "ext4"; };
+
+  # ───────────────────────────────────────────────────────────────────────────
   # conf.profile  — role preset. The presets apply `lib.mkDefault` so explicit
   # values in this file always win. (enum: minimal|server|workstation|developer|gaming|embedded)
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
   conf.profile = "developer";
 
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
   # conf.host — machine identity / locale / users
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
   conf.host = {
     name = "reference";
     timezone = "Asia/Kolkata";
@@ -31,7 +34,7 @@
       name = "admin";
       fullName = "Reference Admin";
       email = "admin@example.com";
-      groups = [ "networkmanager" "wheel" "libvirtd" ];
+      groups = [ "networkmanager" "wheel" ];
       # `initialHashedPassword` uses mkpasswd format; here we only show a placeholder.
       initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
       enableHomeManager = true;
@@ -60,194 +63,149 @@
     };
   };
 
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
   # conf.desktop — GUI desktop environments & display manager
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
   conf.desktop = {
     enable = true;
 
     # environment: (enum: gnome|hyprland|sway|all) — "all" enables every shell.
     environment = "hyprland";
 
-    # conf.desktop.environments.hyprland.shell
-    #   (enum: none|caelestia|noctalia) — custom Hyprland shell preset.
-    environments.hyprland.shell = "noctalia";
-
-    # conf.desktop.packages — when non-empty, substitutes the built-in default set.
-    packages = with pkgs; [ firefox mpv ];
-    # conf.desktop.extraPackages — always appended on top of the above.
-    extraPackages = with pkgs; [ vlc ];
-  };
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # conf.systemServices — infrastructure & services
-  # ─────────────────────────────────────────────────────────────────────────────
-  conf.systemServices = {
-    # conf.systemServices.bootloader
-    #   method: (enum: bios|uefi)
-    #   program: (enum: systemd-boot|grub|uboot)
-    #   allowEFIVariableEdit: bool
-    bootloader = {
-      method = "uefi";
-      program = "systemd-boot";
-      allowEFIVariableEdit = true;
-    };
-
-    networking = {
-      enable = true;
-      wifi.enable = true;
-    };
-
-    multimedia = {
-      enable = true;
-      extraPackages = with pkgs; [ ffmpeg mpv ];
-      nix-ldLibraries = with pkgs; [ gst_all_1.gstreamer ];
-    };
-
-    graphics = {
-      enable = true;
-      vendor = "intel"; # (enum: intel|amd|nvidia)
-      extraPackages = with pkgs; [ mesa ];
-      nix-ldLibraries = with pkgs; [ libGL ];
-    };
-
-    powerManagement.enable = true;
-
-    containerisation = {
-      enable = true;
-      extraPackages = with pkgs; [ docker-compose ];
-    };
-
-    virtualisation = {
-      enable = true;
-      extraPackages = with pkgs; [ virt-manager ];
-      nix-ldLibraries = with pkgs; [ ];
-    };
-
-    # conf.systemServices.homebrew — Darwin/Mac-only; included for completeness.
-    homebrew = {
-      enable = false;
-      brews = [ "wget" "tmux" ];
-      casks = [ "firefox" "iterm2" ];
-      masApps = { "Xcode" = 497799835; };
-      onActivation = {
-        autoUpdate = true;
-        cleanup = "uninstall"; # (enum: none|uninstall|zap)
-        upgrade = true;
+    # Per-environment options (when that environment is active).
+    environments = {
+      hyprland = {
+        # shell: (enum: none|caelestia|noctalia|dms)
+        shell = "dms";
       };
     };
-
-    flatpak.enable = true;
   };
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # conf.development — tooling stack
-  # ─────────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
+  # conf.development — SDKs, editors, and CLI tools
+  # ───────────────────────────────────────────────────────────────────────────
   conf.development = {
     enable = true;
-    # conf.development.extraPackages — extra top-level dev packages.
-    extraPackages = with pkgs; [ ripgrep fd ];
 
-    # Each SDK group exposes: enable, packages, extraPackages, nix-ldLibraries.
+    # SDK language toolchains.
     sdk = {
-      base = {
-        enable = true;
-        packages = with pkgs; [ git gh tmux ];
-        extraPackages = with pkgs; [ jq ];
-        nix-ldLibraries = with pkgs; [ openssl ];
-      };
+      base.enable = true; # core tools: gcc, gnumake, git, curl, jq, etc.
       cpp = {
         enable = true;
-        packages = with pkgs; [ clang-tools cmake ];
-        extraPackages = with pkgs; [ boost ];
-        nix-ldLibraries = with pkgs; [ ];
-      };
-      go = {
-        enable = true;
-        packages = with pkgs; [ go gopls ];
-        extraPackages = with pkgs; [ delve ];
-        nix-ldLibraries = with pkgs; [ ];
-      };
-      rust = {
-        enable = true;
-        packages = with pkgs; [ rustup ];
-        extraPackages = with pkgs; [ ];
-        nix-ldLibraries = with pkgs; [ ];
-      };
-      python = {
-        enable = true;
-        packages = with pkgs; [ python3 ];
-        extraPackages = with pkgs; [ uv ];
-        nix-ldLibraries = with pkgs; [ ];
-      };
-      java = {
-        enable = true;
-        packages = with pkgs; [ zulu17 ];
-        extraPackages = with pkgs; [ maven ];
-        nix-ldLibraries = with pkgs; [ ];
+        extraPackages = with pkgs; [ clang-tools valgrind ];
+        nix-ldLibraries = with pkgs; [ boost ];
       };
       nix = {
         enable = true;
-        packages = with pkgs; [ nixpkgs-fmt ];
-        extraPackages = with pkgs; [ deadnix ];
-        nix-ldLibraries = with pkgs; [ ];
+        extraPackages = with pkgs; [ nil nixpkgs-fmt ];
       };
       lua = {
         enable = true;
-        packages = with pkgs; [ lua ];
-        extraPackages = with pkgs; [ lua-language-server ];
-        nix-ldLibraries = with pkgs; [ ];
+        extraPackages = with pkgs; [ lua-language-server stylua ];
+      };
+      go = {
+        enable = true;
+        extraPackages = with pkgs; [ gopls golangci-lint ];
+      };
+      rust = {
+        enable = true;
+        extraPackages = with pkgs; [ rust-analyzer clippy ];
+      };
+      python = {
+        enable = true;
+        extraPackages = with pkgs; [ pyright black ];
+        nix-ldLibraries = with pkgs; [ zlib ];
+      };
+      java = {
+        enable = true;
+        extraPackages = with pkgs; [ jdt-language-server ];
+      };
+      cue = {
+        enable = true;
       };
     };
 
-    # Each editor group adds: configPath, configRepo on top of the SDK shape.
+    # Editor configurations.
     editors = {
       neovim = {
         enable = true;
-        configPath = "~/.config/nvim";
-        configRepo = "https://github.com/example/nvim";
-        packages = with pkgs; [ neovim ];
-        extraPackages = with pkgs; [ ripgrep ];
-        nix-ldLibraries = with pkgs; [ ];
+        configRepo = "https://github.com/example/nvim-config.git";
+        extraPackages = with pkgs; [ tree-sitter ripgrep fd ];
       };
       emacs = {
         enable = true;
-        configPath = "~/.config/emacs";
-        configRepo = "https://github.com/example/emacs";
-        packages = with pkgs; [ emacs ];
-        extraPackages = with pkgs; [ ];
-        nix-ldLibraries = with pkgs; [ ];
+        configRepo = "https://github.com/example/doom-emacs-config.git";
+        extraPackages = with pkgs; [ ripgrep fd ispell ];
       };
       vscode = {
         enable = true;
-        configPath = "~/.config/Code";
-        configRepo = "";
-        packages = with pkgs; [ vscode ];
-        extraPackages = with pkgs; [ ];
-        nix-ldLibraries = with pkgs; [ ];
       };
     };
 
-    # Each tool group exposes: enable, packages, extraPackages, nix-ldLibraries.
+    # General developer CLI tools.
     tools = {
       gemini = {
         enable = true;
-        packages = with pkgs; [ ];
-        extraPackages = with pkgs; [ ];
-        nix-ldLibraries = with pkgs; [ ];
       };
       opencode = {
         enable = true;
-        packages = with pkgs; [ ];
-        extraPackages = with pkgs; [ ];
-        nix-ldLibraries = with pkgs; [ ];
       };
       rtk = {
         enable = true;
-        packages = with pkgs; [ ];
-        extraPackages = with pkgs; [ ];
-        nix-ldLibraries = with pkgs; [ ];
       };
+    };
+
+    # System-level custom fonts.
+    fonts = {
+      packages = with pkgs; [
+        nerd-fonts.jetbrains-mono
+        nerd-fonts.fira-code
+        nerd-fonts.iosevka
+      ];
+    };
+  };
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # conf.systemServices — OS daemons, background services, hardware features
+  # ───────────────────────────────────────────────────────────────────────────
+  conf.systemServices = {
+    # Linux bootloader configuration (ignored on Darwin).
+    bootloader = {
+      # method: (enum: bios|uefi) — "uefi" selects systemd-boot for UEFI systems.
+      method = "uefi";
+      program = "systemd-boot";
+    };
+
+    # GPU / Graphics hardware configuration.
+    graphics = {
+      enable = true;
+      # vendor: (enum: intel|nvidia|amd|hybrid-intel-nvidia|hybrid-amd-nvidia|none)
+      vendor = "intel";
+    };
+
+    # Power management (laptop profiles, thermals, sleep/wake).
+    powerManagement = {
+      enable = true;
+    };
+
+    # Containerisation runtimes.
+    containerisation = {
+      enable = true;
+    };
+
+    # Virtualisation hypervisors.
+    virtualisation = {
+      enable = true;
+    };
+
+    # Flatpak application runtime.
+    flatpak = {
+      enable = true;
+    };
+
+    # Homebrew integration (Darwin only).
+    homebrew = {
+      enable = false;
     };
   };
 }

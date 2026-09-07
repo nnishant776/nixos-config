@@ -31,7 +31,6 @@
       url = "github:noctalia-dev/noctalia";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
     noctalia-greeter = {
       url = "github:noctalia-dev/noctalia-greeter";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -47,17 +46,31 @@
   let
     lib = nixpkgs.lib;
     mkHost = import ./lib/mkHost.nix { inherit inputs; };
+    mkUser = import ./lib/mkUser.nix { inherit inputs; };
 
     hostNames = builtins.attrNames (
       lib.filterAttrs (_: t: t == "directory") (builtins.readDir ./hosts)
     );
 
-    hostMeta = lib.genAttrs hostNames (h:
-      import (./hosts + "/${h}/meta.nix")
+    hostPlatforms = lib.genAttrs hostNames (h:
+      let
+        hostFile = import (./hosts + "/${h}/default.nix");
+        raw = if builtins.isFunction hostFile then hostFile { config = {}; pkgs = {}; lib = lib; } else hostFile;
+      in
+        raw.nixpkgs.hostPlatform
     );
 
-    linuxHosts = lib.filterAttrs (_: m: (lib.systems.elaborate m.system).isLinux) hostMeta;
-    darwinHosts = lib.filterAttrs (_: m: (lib.systems.elaborate m.system).isDarwin) hostMeta;
+    linuxHosts = lib.filterAttrs (_: p: (lib.systems.elaborate p).isLinux) hostPlatforms;
+    darwinHosts = lib.filterAttrs (_: p: (lib.systems.elaborate p).isDarwin) hostPlatforms;
+
+    nixosConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) linuxHosts;
+    darwinConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) darwinHosts;
+
+    homeConfigurations = mkUser.mkHomeConfigurations {
+      inherit hostPlatforms;
+      hostConfigs = nixosConfigurations // darwinConfigurations;
+      usersDir = ./users;
+    };
 
     osInstallApps = lib.mapAttrs (system: _:
       let
@@ -70,19 +83,10 @@
             exit 1
           fi
 
-          # Partition/format using the disko script generated from the FULLY
-          # EVALUATED NixOS configuration for this host. Because it is built from
-          # `config.disko.devices`, any per-host conditionals based on
-          # `conf.*` (e.g. conf.systemServices.bootloader.method) are already
-          # resolved — unlike `disko --mode disko <raw disko-config.nix>`,
-          # which runs the file standalone without access to the `conf.*` tree.
           if [ -f /root/.disko-partitioning.done ]; then
             echo "warning: partitioning already done for host '$host', skipping disko" >&2
           else
             diskoScript="$(nix build --no-link --print-out-paths "${self}#nixosConfigurations.''${host}.config.system.build.diskoScript")"
-            # The generated `diskoScript` is a single executable: `$out` is a
-            # symlink to the script itself (disko uses a plain writer name, so
-            # there is no $out/bin/disko — see makeScriptWriter). Run it directly.
             if "$diskoScript"; then
               touch /root/.disko-partitioning.done
               if [ ! "$(ls /dev/disk/by-partlabel/*swap*)" = "" ]; then
@@ -102,10 +106,9 @@
           program = "${script}/bin/os-install";
         };
       })
-    (lib.groupBy (m: m.system) (lib.attrValues linuxHosts));
+    (lib.groupBy (p: p) (lib.attrValues linuxHosts));
   in {
-    nixosConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) linuxHosts;
-    darwinConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) darwinHosts;
+    inherit nixosConfigurations darwinConfigurations homeConfigurations;
     apps = osInstallApps;
   };
 }

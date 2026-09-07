@@ -1,5 +1,7 @@
 { config, pkgs, lib, ... }:
 {
+  nixpkgs.hostPlatform = "x86_64-linux";
+
   conf = {
     profile = "workstation";
 

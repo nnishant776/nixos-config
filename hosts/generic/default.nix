@@ -1,4 +1,6 @@
 { config, pkgs, lib, ... }: {
+  nixpkgs.hostPlatform = "x86_64-linux";
+
   conf = {
     profile = "developer";
 
@@ -24,8 +26,8 @@
 
     desktop = {
       enable = true;
-      environment = "all";
-      environments.hyprland.shell = "noctalia";
+      environment = "hyprland";
+      environments.hyprland.shell = "dms";
     };
 
     development = {
@@ -35,7 +37,12 @@
         cpp.enable = true;
         nix.enable = true;
         lua.enable = true;
-        go.enable = false;
+        go = {
+          enable = true;
+          extraPackages = with pkgs; [
+            gopls
+          ];
+        };
         rust.enable = false;
         python.enable = false;
         java.enable = false;
@@ -45,7 +52,7 @@
         emacs.enable = true;
       };
       tools = {
-        gemini.enable = true;
+        gemini.enable = false;
         opencode.enable = true;
         rtk.enable = true;
       };

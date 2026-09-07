@@ -2,8 +2,9 @@
 { hostName, hostDir }:
 let
   lib = inputs.nixpkgs.lib;
-  meta = import (hostDir + "/meta.nix");
-  system = meta.system;
+  hostFile = import (hostDir + "/default.nix");
+  rawHost = if builtins.isFunction hostFile then hostFile { config = {}; pkgs = {}; lib = lib; } else hostFile;
+  system = rawHost.nixpkgs.hostPlatform;
   sysElaborate = lib.systems.elaborate system;
   isLinux = sysElaborate.isLinux;
   isDarwin = sysElaborate.isDarwin;
@@ -12,8 +13,8 @@ let
     let perHost = hostDir + "/hardware-configuration.nix";
     in
       if builtins.pathExists perHost
-      then perHost
-      else "/etc/nixos/hardware-configuration.nix";
+      then [ perHost ]
+      else [];
 
   diskoCfgPath =
     let perHost = hostDir + "/disko-config.nix";
@@ -27,8 +28,7 @@ let
     (hostDir + "/default.nix")
     ../modules/core
     ../modules/conf
-    { nixpkgs.hostPlatform = system; }
-    ../modules/home/home-manager.nix
+    ../modules/user/home-manager.nix
   ];
 in
   if isLinux then
@@ -36,7 +36,7 @@ in
       modules = commonModules ++ [
         { system.stateVersion = "26.05"; }
       ]
-      ++ [ hardwareCfgPath ]
+      ++ hardwareCfgPath
       ++ lib.optionals (diskoCfgPath != null) [ diskoCfgPath ]
       ++ [
         ../modules/system/linux

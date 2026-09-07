@@ -1,4 +1,6 @@
 { config, pkgs, lib, ... }: {
+  nixpkgs.hostPlatform = "aarch64-darwin";
+
   conf = {
     profile = "developer";
 
