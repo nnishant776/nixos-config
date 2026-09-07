@@ -73,6 +73,7 @@ in {
       wlr.enable = true;
       extraPortals = with pkgs; [
         xdg-desktop-portal-gtk
+        xdg-desktop-portal-gnome            # For light/dark mode detection
         lxqt.xdg-desktop-portal-lxqt
       ];
       config = {
