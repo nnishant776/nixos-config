@@ -32,6 +32,9 @@ let
 
     # File browsers
     thunar
+
+    # Curosr
+    phinger-cursors
   ];
 in {
   config = lib.mkIf config.conf.desktop.enable {
@@ -43,6 +46,11 @@ in {
         defaultDesktopPackages
     )
     ++ config.conf.desktop.extraPackages;
+
+    environment.sessionVariables = {
+      XCURSOR_THEME = "phinger-cursors-dark"; # or "phinger-cursors-light"
+      XCURSOR_SIZE = "24";
+    };
 
     # Configure chromium
     programs.chromium.enable = true;
