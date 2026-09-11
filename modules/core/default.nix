@@ -1,13 +1,24 @@
-{
+{ config, pkgs, lib, ... }:
+let
+  filePath = "/etc/os-release";
+  searchString = "nixos";
+  fileContent = builtins.readFile filePath;
+  isLinux = pkgs.stdenv.isLinux;
+  isDarwin = pkgs.stdenv.isDarwin;
+  isNixOS = lib.strings.hasInfix (lib.strings.toLower searchString) (lib.strings.toLower fileContent);
+  lixpkgs = pkgs.lixPackageSets;
+in {
   imports = [
     ./base.nix
     ./development
   ];
 
   nix = {
+    enable = true;
+    package = lib.mkIf (isDarwin || !isNixOS) lixpkgs.stable.lix;
     gc = {
       automatic = true;
-      dates = "weekly";
+      dates = lib.mkIf isLinux "weekly";
       options = "--delete-older-than 30d";
     };
     settings = {
@@ -21,4 +32,14 @@
     allowUnfree = true;
     allowUnfreePredicate = (_: true);
   };
+
+  nixpkgs.overlays = [
+    (final: prev: {
+      inherit (prev.lixpkgs.stable)
+        nixpkgs-review
+        nix-eval-jobs
+        nix-fast-build
+        colmena;
+    })
+  ];
 }
