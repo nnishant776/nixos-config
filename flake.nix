@@ -159,7 +159,7 @@
           program = "${nixFlakeHomeSwitch}/bin/home-switch";
         };
       })
-    (lib.groupBy (p: p) (lib.attrValues linuxHosts));
+    (lib.groupBy (p: p) (lib.attrValues (linuxHosts // darwinHosts)));
   in {
     inherit nixosConfigurations darwinConfigurations homeConfigurations;
     apps = customApps;
