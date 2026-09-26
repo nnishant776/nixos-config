@@ -12,6 +12,7 @@ let
     clang
     tmux
     fzf
+    pkg-config
   ];
 
   defaultCppPackages = with pkgs; [

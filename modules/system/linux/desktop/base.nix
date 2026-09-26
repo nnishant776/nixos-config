@@ -7,8 +7,9 @@ let
     # Clipboard
     wl-clipboard
 
-    # System Brightness
+    # Hardware control
     brightnessctl
+    libinput
 
     # Media Controls
     playerctl
