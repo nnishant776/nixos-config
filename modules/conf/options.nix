@@ -219,6 +219,18 @@ in {
         };
       };
 
+      sharing = {
+        enable = mkToggle "Enable sharing";
+        ssh = {
+          enable = mkToggle "Enable SSH service";
+          config = lib.mkOption {
+            type = lib.types.attrs;
+            default = {};
+            description = "SSH server configuration";
+          };
+        };
+      };
+
       multimedia = {
         enable = mkToggle "Enable audio/video stack";
         extraPackages = lib.mkOption {

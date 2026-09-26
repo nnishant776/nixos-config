@@ -9,6 +9,7 @@ in {
     networking.firewall = lib.mkIf cfg.firewall.enable (lib.mkMerge [
       ({ enable = true; })
       (if cfg.firewall.config != {} then cfg.firewall.config else {})
+      (if svcCfg.sharing.ssh.enable then { allowedTCPPorts = [ 22 ]; } else {})
     ]);
   };
 }

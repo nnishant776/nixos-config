@@ -8,5 +8,6 @@
     ./flatpak.nix
     ./containerisation.nix
     ./virtualisation.nix
+    ./sharing.nix
   ];
 }

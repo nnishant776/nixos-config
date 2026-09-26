@@ -15,5 +15,9 @@ in {
     (lib.mkIf (cfg.systemServices.bootloader.method == "bios") {
       conf.systemServices.bootloader.program = mk "grub";
     })
+
+    (lib.mkIf cfg.systemServices.sharing.enable {
+      conf.systemServices.networking.firewall.enable = mk true;
+    })
   ];
 }
