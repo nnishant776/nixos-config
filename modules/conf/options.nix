@@ -209,6 +209,14 @@ in {
         enable = mkToggle "Enable networking and NetworkManager";
         wifi.enable = mkToggle "Enable WiFi backend";
         bluetooth.enable = mkToggle "Enable Bluetooth backend";
+        firewall = {
+          enable = mkToggle "Enable network firewall";
+          config = lib.mkOption {
+            type = lib.types.attrs;
+            default = {};
+            description = "Network firewall configuration";
+          };
+        };
       };
 
       multimedia = {
