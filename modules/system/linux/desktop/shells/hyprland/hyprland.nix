@@ -24,10 +24,13 @@ in {
 
     # Configure desktop portals
     xdg.portal = {
-      extraPortals = [ pkgs.xdg-desktop-portal-hyprland ];
+      extraPortals = with pkgs; [
+        xdg-desktop-portal-hyprland
+        xdg-desktop-portal-gnome
+      ];
       config = {
         hyprland = {
-          default = [ "hyprland" "gtk" "lxqt" ];
+          default = [ "hyprland" "gtk" "lxqt" "gnome" ];
         };
       };
     };
