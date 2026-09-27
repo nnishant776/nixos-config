@@ -1,4 +1,4 @@
-{ inputs, pkgs, lib, config, ... }:
+{ inputs, pkgs, lib, config, flakeLib, ... }:
 let
   fontPackages = with pkgs; [
     noto-fonts
@@ -17,7 +17,17 @@ let
     inputs.apple-fonts.packages.${pkgs.stdenv.hostPlatform.system}.sf-mono
   ];
 in {
-  config = lib.mkIf config.conf.desktop.enable {
+  # flakeLib.mkDefaults marks every scalar below as a default, so a host can
+  # override any of them with a plain assignment (hosts/virtual does exactly that
+  # for hinting.style, which used to be a "conflicting definition values" error).
+  #
+  # It deliberately leaves lists alone, which is what fonts.packages wants:
+  # modules/core/development/fonts.nix contributes to the same option and the two
+  # sets have to concatenate. fontconfig.defaultFonts is the opposite case — these
+  # are priority-ordered preference lists, where concatenating a host's choice
+  # after ours would leave the effective font unchanged — so those are wrapped
+  # explicitly to get replace-semantics.
+  config = lib.mkIf config.conf.desktop.enable (flakeLib.mkDefaults {
     fonts = {
       fontDir.enable = true;
       enableDefaultPackages = true;
@@ -26,10 +36,10 @@ in {
         enable = true;
         antialias = true;
         defaultFonts = {
-          serif = [ "NotoSerif Nerd Font" ];
-          sansSerif = [ "NotoSans Nerd Font" ];
-          monospace = [ "NotoSansM Nerd Font" ];
-          emoji = [ "Noto Color Emoji" ];
+          serif = lib.mkDefault [ "NotoSerif Nerd Font" ];
+          sansSerif = lib.mkDefault [ "NotoSans Nerd Font" ];
+          monospace = lib.mkDefault [ "NotoSansM Nerd Font" ];
+          emoji = lib.mkDefault [ "Noto Color Emoji" ];
         };
         hinting = {
           enable = true;
@@ -44,5 +54,5 @@ in {
         useEmbeddedBitmaps = true;
       };
     };
-  };
+  });
 }

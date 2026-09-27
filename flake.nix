@@ -78,14 +78,14 @@
         nixosInstallScript = pkgs.writeShellScriptBin "os-install" ''
           set -euo pipefail
 
-          if [ "$(uname)" = "Darwin" ]; thne
+          if [ "$(uname)" = "Darwin" ]; then
             echo "Command not supported on this system"
             exit 1
           fi
 
-          host="$1"
+          host="''${1:-}"
 
-          if [ -z "''${host:-}" ]; then
+          if [ -z "$host" ]; then
             echo "usage: os-install <hostname>" >&2
             exit 1
           fi
@@ -109,11 +109,11 @@
         '';
 
         nixFlakeSystemSwitch = pkgs.writeShellScriptBin "system-switch" ''
-          set -eo pipefail
+          set -euo pipefail
 
-          host="$1"
-          flakePath="$2"
-          os=$(uname)
+          host="''${1:-}"
+          flakePath="''${2:-}"
+          os="$(uname)"
 
           if [ -z "$host" ] || [ -z "$flakePath" ]; then
             echo "usage: system-switch <hostname> <flake path>" >&2
@@ -121,28 +121,28 @@
           fi
 
           if [ "$os" = "Darwin" ]; then
-            exec sudo nix run nix-darwin -- switch --flake $flakePath#$host  --impure
+            exec sudo nix run nix-darwin -- switch --flake "$flakePath#$host" --impure
           else
-            if grep -i "nixos" /etc/os-release 2>&1 > /dev/null; then
-              exec sudo nixos-rebuild switch --flake $flakePath#$host  --impure
+            if grep -qi "nixos" /etc/os-release > /dev/null 2>&1; then
+              exec sudo nixos-rebuild switch --flake "$flakePath#$host" --impure
             else
-              exec sudo nix run system-manager -- switch --flake $flakePath#$host  --impure
+              exec sudo nix run system-manager -- switch --flake "$flakePath#$host" --impure
             fi
           fi
         '';
 
         nixFlakeHomeSwitch = pkgs.writeShellScriptBin "home-switch" ''
-          set -eo pipefail
+          set -euo pipefail
 
-          user="$1"
-          flakePath="$2"
+          user="''${1:-}"
+          flakePath="''${2:-}"
 
-          if [ -z "user" ] || [ -z "$flakePath" ]; then
-            echo "usage: system-switch <username> <flake path>" >&2
+          if [ -z "$user" ] || [ -z "$flakePath" ]; then
+            echo "usage: home-switch <username> <flake path>" >&2
             exit 1
           fi
 
-          exec nix run home-manager -- switch --flake $flakePath#$user  --impure
+          exec nix run home-manager -- switch --flake "$flakePath#$user" --impure
         '';
 
       in {

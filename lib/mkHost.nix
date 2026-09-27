@@ -23,6 +23,8 @@ let
       then perHost
       else null;
 
+  flakeLib = import ./flakeLib.nix { inherit lib; };
+
   commonModules = [
     (hostDir + "/default.nix")
     ../modules/core
@@ -45,7 +47,7 @@ in
         inputs.disko.nixosModules.disko
         inputs.dms.nixosModules.dank-material-shell
       ];
-      specialArgs = { inherit inputs; };
+      specialArgs = { inherit inputs flakeLib; };
     }
   else if isDarwin then
     inputs.nix-darwin.lib.darwinSystem {
@@ -53,7 +55,7 @@ in
         ../modules/system/darwin
         inputs.home-manager.darwinModules.home-manager
       ];
-      specialArgs = { inherit inputs; };
+      specialArgs = { inherit inputs flakeLib; };
     }
   else
     builtins.throw "mkHost: unsupported system '${system}' for host '${hostName}'"
