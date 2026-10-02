@@ -34,7 +34,11 @@
       name = "admin";
       fullName = "Reference Admin";
       email = "admin@example.com";
-      groups = [ "networkmanager" "wheel" ];
+      # `privileged` grants sudo via wheel, plus the privilege-adjacent groups
+      # (networkmanager, docker/podman, libvirtd/kvm, etc.) derived from
+      # whichever services this host enables. `groups` is only for extra,
+      # non-privilege memberships.
+      privileged = true;
       # `initialHashedPassword` uses mkpasswd format; here we only show a placeholder.
       initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
       enableHomeManager = true;
@@ -50,7 +54,10 @@
         name = "bob";
         fullName = "Bob Example";
         email = "bob@example.com";
-        groups = [ "wheel" ];
+        # Ordinary non-admin user: no sudo, and network access limited to the
+        # narrow `network-users` permissions rather than the full
+        # `networkmanager` group.
+        privileged = false;
         enableHomeManager = false;
         extraHomeConfig = {};
       }

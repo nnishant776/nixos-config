@@ -19,10 +19,32 @@ let
         default = "";
         description = "User's email address.";
       };
+      privileged = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Grant this user administrative access: sudo (via wheel), plus the
+          privilege-adjacent groups for whichever services the host enables —
+          networkmanager, docker/podman, libvirtd/kvm.
+
+          Off by default. Every one of those groups is root or near-root —
+          membership of `docker` alone is equivalent to root, since a container
+          can bind-mount the host filesystem — so they follow from this single
+          flag rather than from `groups`. That keeps sudo-equivalent access
+          declared in one place and makes it assertable.
+        '';
+      };
       groups = lib.mkOption {
         type = lib.types.listOf lib.types.str;
-        default = [ "wheel" ];
-        description = "Extra groups for the user.";
+        default = [ ];
+        description = ''
+          Extra groups for the user, beyond those derived from `privileged` and
+          from the host's enabled services.
+
+          Privilege-granting groups (wheel, docker, podman, libvirtd, kvm,
+          networkmanager) are rejected here by an assertion — set
+          `privileged = true` instead.
+        '';
       };
       initialHashedPassword = lib.mkOption {
         type = lib.types.str;

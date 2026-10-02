@@ -10,7 +10,7 @@
         name = "admin";
         fullName = "Administrator";
         email = "admin@example.com";
-        groups = [ "networkmanager" "wheel" ];
+        privileged = true;
         initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
       };
     };
