@@ -4,13 +4,10 @@ let
   isHyprland = cfg.enable && cfg.environments.hyprland.enable;
 in {
   config = lib.mkIf isHyprland {
-    # Set OZONE env var by default
     environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
-    # Enable UWSM
     programs.uwsm.enable = true;
 
-    # Enable Hyprland
     programs = {
       hyprland = {
         enable = true;
@@ -22,7 +19,6 @@ in {
       };
     };
 
-    # Configure desktop portals
     xdg.portal = {
       extraPortals = with pkgs; [
         xdg-desktop-portal-hyprland
@@ -37,12 +33,10 @@ in {
 
     # The greeter lives in ../../display-manager.nix.
 
-    # Configure Polkit agent
     systemd.user.services.hyprpolkitagent = lib.mkIf (cfg.environments.hyprland.shell == "none") {
       description = "Hyprland Polkit Authentication Agent";
       documentation = [ "https://github.com" ];
 
-      # Start automatically as soon as Hyprland loads the graphical target
       wantedBy = [ "graphical-session.target" ];
       wants = [ "graphical-session.target" ];
       after = [ "graphical-session.target" ];
@@ -55,7 +49,6 @@ in {
       };
     };
 
-    # Install Hyprland applications
     environment.systemPackages = with pkgs; [
       # Desktop utilities
       kitty

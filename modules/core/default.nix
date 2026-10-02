@@ -6,12 +6,6 @@ let
   # Which kind of system this configuration is being deployed to. Declared by
   # conf.platform and set by lib/mkHost.nix, rather than sniffed from the
   # evaluating machine.
-  #
-  # This used to read /etc/os-release and look for "nixos", which was wrong on
-  # two counts: it forced every NixOS build to run with --impure, and it
-  # described the machine doing the *evaluation* rather than the system being
-  # *built* — so building a NixOS closure from a Mac or a CI runner would decide
-  # the target was not NixOS and install Lix on it.
   isNixOS = config.conf.platform == "nixos";
 in {
   imports = [
@@ -21,9 +15,8 @@ in {
 
   nix = {
     enable = true;
-    # On NixOS, nix is part of the system closure already. Everywhere else
-    # (nix-darwin, system-manager on a foreign distro) this configuration is
-    # managing an externally installed nix, and we want Lix there.
+    # Lix only where this configuration manages an externally installed nix
+    # (nix-darwin, a foreign distro) — on NixOS, nix is already part of the closure.
     package = lib.mkIf (!isNixOS) lixpkgs.stable.lix;
     gc = {
       automatic = true;

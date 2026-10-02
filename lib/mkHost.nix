@@ -25,12 +25,9 @@ let
 
   flakeLib = import ./flakeLib.nix { inherit lib; };
 
-  # The directory name under hosts/ is the machine's identity, so it has to be
-  # exactly the hostname. `nixos-rebuild switch` with no arguments resolves
-  # #$(hostname), and home configurations are keyed <user>@<host-dir>, so a
-  # disagreement makes both lookups miss — on a fleet machine rebuilding itself
-  # from /etc/nixos that is a silent failure to update. Enforced rather than
-  # accommodated.
+  # The hosts/ directory name and conf.host.name must match: both
+  # `nixos-rebuild switch` (resolving #$(hostname)) and the <user>@<host-dir>
+  # home configuration keys depend on it.
   hostIdentity = { config, ... }: {
     assertions = [
       {
@@ -46,10 +43,9 @@ let
     ];
   };
 
-  # Home Manager is wired in here for organisation-managed homes, which is the
-  # default. Users granted conf.host.*.allowHomeManagement are excluded from this
-  # path and get a published homeConfigurations entry instead, so exactly one
-  # generation ever owns a given home directory.
+  # Home Manager is wired in here for organisation-managed homes. Users
+  # granted conf.host.*.allowHomeManagement are excluded and get a published
+  # homeConfigurations entry instead.
   commonModules = [
     (hostDir + "/default.nix")
     hostIdentity
@@ -63,8 +59,6 @@ in
       modules = commonModules ++ [
         {
           system.stateVersion = "26.05";
-          # Declared here rather than sniffed from the evaluating machine: this
-          # branch *is* the decision that the target is NixOS.
           conf.platform = "nixos";
         }
       ]

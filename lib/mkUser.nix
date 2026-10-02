@@ -9,10 +9,9 @@ let
     , system ? "x86_64-linux"
     , extraModules ? [ ]
     , usersDir ? ../users
-      # Home Manager is invoked by the user, on their own machine, so importing
-      # their ~/.config/home-manager/default.nix crosses no privilege boundary.
-      # The parameter defaults off in buildUser so that any future system-level
-      # caller — which would evaluate as root — has to opt in deliberately.
+      # Safe here since Home Manager is invoked by the user on their own
+      # machine; buildUser defaults this off so a future system-level caller
+      # has to opt in deliberately.
     , allowLocalOverride ? true
     }:
     let
@@ -36,10 +35,9 @@ let
     lib.flatten (lib.mapAttrsToList (dirName: hostCfg:
       let
         host = hostCfg.config.conf.host;
-        # Only users granted allowHomeManagement. Organisation-managed homes are
-        # activated by the system (modules/user/home-manager.nix) and must not
-        # also be published here, or both generations would fight over the same
-        # home directory. conf.host.enableHomeManager gates the whole host.
+        # Only users granted allowHomeManagement. Organisation-managed homes
+        # are activated by the system (modules/user/home-manager.nix) and must
+        # not also be published here.
         enabledUsers = lib.filterAttrs
           (_: u: host.enableHomeManager && u.allowHomeManagement)
           host.users;
@@ -58,22 +56,17 @@ let
       inherit usersDir;
       inherit (e) username system;
       extraModules = [ e.userCfg.extraHomeConfig ];
-      # allowLocalOverride stays at mkUser's default of true: everything built
-      # here is standalone Home-Manager, run by the user on their own machine.
+      # allowLocalOverride stays at mkUser's default of true: this is
+      # standalone Home Manager, run by the user on their own machine.
     };
 
-  # Users declared by host configurations, keyed `<username>@<host-dir>`.
+  # Users declared by host configurations, keyed `<username>@<host-dir>`:
   #
   #   home-manager switch --flake /etc/nixos#<username>@<host>
   #
-  # There is deliberately no bare `<username>` alias. Resolving one meant
-  # reading /etc/hostname at evaluation time, which made these outputs impure,
-  # did not work on Darwin (no such file), and failed badly: in pure mode the
-  # alias did not error, it silently did not exist, so `--flake .#admin` came
-  # back "does not provide attribute" with nothing to explain why.
-  #
-  # The hostname is a property of the machine running the command, so the
-  # `home-switch` wrapper resolves it in the shell instead.
+  # There is deliberately no bare `<username>` alias; the hostname is a
+  # property of the machine running the command, so the `home-switch` wrapper
+  # resolves it in the shell instead.
   discoverHostUsers = { hostConfigs, hostPlatforms, usersDir ? ../users }:
     let
       entries = hostUserEntries { inherit hostConfigs hostPlatforms; };

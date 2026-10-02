@@ -18,15 +18,13 @@ let
   ];
 in {
   # flakeLib.mkDefaults marks every scalar below as a default, so a host can
-  # override any of them with a plain assignment (hosts/virtual does exactly that
-  # for hinting.style, which used to be a "conflicting definition values" error).
-  #
-  # It deliberately leaves lists alone, which is what fonts.packages wants:
-  # modules/core/development/fonts.nix contributes to the same option and the two
-  # sets have to concatenate. fontconfig.defaultFonts is the opposite case — these
-  # are priority-ordered preference lists, where concatenating a host's choice
-  # after ours would leave the effective font unchanged — so those are wrapped
-  # explicitly to get replace-semantics.
+  # override any of them with a plain assignment. It leaves lists alone, so
+  # fonts.packages must stay a plain value here rather than mkDefault:
+  # modules/core/development/fonts.nix also contributes to it, and defaulting
+  # either side would silently drop the other's packages. fontconfig.defaultFonts
+  # entries are wrapped in mkDefault deliberately, since those are
+  # priority-ordered preference lists where a host should replace rather than
+  # concatenate.
   config = lib.mkIf config.conf.desktop.enable (flakeLib.mkDefaults {
     fonts = {
       fontDir.enable = true;

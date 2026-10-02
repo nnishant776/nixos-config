@@ -3,52 +3,28 @@ let
   users = config.conf.host.users;
   svc = config.conf.systemServices;
 
-  # Groups that confer root or near-root. These must follow from a user's
-  # `privileged` flag — never from a hand-written group list, and never from a
-  # service merely being enabled, which is how this configuration previously
-  # handed every user on a `developer` profile host root-equivalent access:
-  #
-  #   wheel           sudo.
-  #   docker          root. `docker run -v /:/host --privileged` and the machine
-  #                   is yours — no sudo entry, nothing in sudoers to audit.
-  #   podman          the rootful podman socket, same reasoning as docker.
-  #   libvirtd        define a VM with host disk passthrough, i.e. read any file
-  #                   on the host as root. This is the group to withhold; see
-  #                   the note below on how unprivileged users still run VMs.
-  #   networkmanager  NixOS gives this group a blanket polkit YES for every
-  #                   org.freedesktop.NetworkManager.* action (a prefix match,
-  #                   not an allowlist), which covers rewriting system-wide
-  #                   connections, global DNS and the hostname, and opening a
-  #                   Wi-Fi hotspot.
+  # Groups that confer root or near-root (wheel: sudo; docker/podman: rootful
+  # sockets; libvirtd: VM disk passthrough; networkmanager: a blanket polkit
+  # YES for every org.freedesktop.NetworkManager.* action). These must follow
+  # from a user's `privileged` flag — never from a hand-written group list,
+  # and never from a service merely being enabled.
   privilegedGroups = [ "wheel" "docker" "podman" "libvirtd" "networkmanager" ];
 
-  # Deliberately NOT in the list above: `kvm`.
-  #
-  # systemd's own udev rule ships /dev/kvm as world-accessible —
-  #   KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
-  # — because KVM is designed to be safe to expose to unprivileged users. The
-  # group is empty on a stock NixOS system and grants nothing, so treating it as
-  # privilege would misrepresent the model: withholding it denies no capability.
-  #
-  # It is still granted below, to every user rather than only privileged ones,
-  # purely as insurance: if upstream ever tightens that mode back to 0660, group
-  # membership is what keeps VMs working.
-  #
-  # So an unprivileged user runs VMs via libvirt *session* mode
-  # (qemu:///session, which virt-manager speaks), plain qemu, or
-  # `nixos-rebuild build-vm` — all with KVM acceleration and none needing a
-  # group. What they give up is system-mode libvirt: bridged networking, PCI/USB
-  # passthrough, VMs that start at boot, and host-level storage pools. "I need
-  # to run a VM" is therefore not a reason to grant `libvirtd`.
+  # Deliberately NOT in the list above: `kvm`. /dev/kvm is world-accessible by
+  # default udev rule, so the group grants nothing and is given to every user,
+  # not just privileged ones, as insurance against that mode ever tightening.
+  # An unprivileged user still runs VMs via libvirt session mode, plain qemu,
+  # or `nixos-rebuild build-vm`; what they lose without `libvirtd` is
+  # system-mode libvirt (bridged networking, PCI/USB passthrough, boot-time
+  # VMs, host storage pools).
 
   # What a non-privileged user needs in order to join and switch networks.
   # Deliberately omitted: settings.modify.system, settings.modify.global-dns,
   # settings.modify.hostname, wifi.share.open, wifi.share.protected,
-  # checkpoint-rollback and reload — none has a legitimate non-admin use.
-  #
-  # Note this still permits settings.modify.own, and a connection a user owns
-  # can carry its own ipv4.dns. Pinning the resolver is a network-layer job
-  # (networkmanager.dns + firewall), not something polkit can do.
+  # checkpoint-rollback and reload — none has a legitimate non-admin use. This
+  # still permits settings.modify.own, so a connection a user owns can carry
+  # its own ipv4.dns; pinning the resolver is a network-layer job, not a
+  # polkit one.
   networkUserActions = [
     "org.freedesktop.NetworkManager.enable-disable-network"
     "org.freedesktop.NetworkManager.enable-disable-wifi"
@@ -83,10 +59,8 @@ let
 in
 {
   config = {
-    # Set hostname
     networking.hostName = config.conf.host.name;
 
-    # Add registered users
     users.users = lib.mapAttrs (username: user: {
       isNormalUser = true;
       description = user.fullName;
@@ -102,14 +76,9 @@ in
 
     # Non-privileged users are not in `networkmanager`, so NixOS' blanket rules
     # for that group never match them and this allowlist is what they get.
-    # Registration order relative to those rules does not matter: polkit takes
-    # the first non-undefined result, and the two match disjoint groups.
-    #
-    # Note NixOS adds a second blanket rule for org.freedesktop.ModemManager,
-    # also keyed on the networkmanager group. Nothing is allowlisted here for it,
-    # so a non-privileged user can toggle WWAN through NetworkManager but cannot
-    # drive the modem directly (SIM unlock and the like). Revisit if the fleet
-    # uses built-in cellular.
+    # NixOS also has a blanket rule for org.freedesktop.ModemManager keyed on
+    # the same group; nothing is allowlisted here for it, so a non-privileged
+    # user can toggle WWAN but cannot drive the modem directly.
     security.polkit.extraConfig = lib.mkIf svc.networking.enable ''
       polkit.addRule(function(action, subject) {
         var allowed = [${lib.concatMapStringsSep "" (a: "\n    \"${a}\",") networkUserActions}
@@ -167,18 +136,14 @@ in
         + " so no account on this machine can use sudo. Intentional for an"
         + " appliance; a lockout for anything interactive.");
 
-    # Set timezone
     time.timeZone = config.conf.host.timezone;
 
-    # Set up first boot tasks
     systemd.services.run-once-on-first-boot = {
       description = "Run script exactly once on first boot";
 
-      # Ensure it runs late enough if you need networking or full system initialized
       after = [ "multi-user.target" ];
       wantedBy = [ "multi-user.target" ];
 
-      # This condition prevents the service from running if the file already exists
       unitConfig = {
         ConditionPathExists = "!/var/lib/run-once-on-first-boot.done";
       };
@@ -191,10 +156,7 @@ in
       script = ''
         echo "Executing first-boot initialization tasks..."
 
-        # Commands to run on first boot
         touch /root/.disko-partitioning.done
-
-        # Create the token file so this service is skipped on subsequent boots
         touch /var/lib/run-once-on-first-boot.done
       '';
     };

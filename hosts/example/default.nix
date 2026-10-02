@@ -1,15 +1,7 @@
-# Reference host exercising every option under `conf/`.
-#
-# This host is not meant to be deployed — it is a documentation example that
-# sets every possible `conf.*` option to a representative value, mirroring the
-# full option tree declared in `modules/conf/options.nix`. Use it as a lookup
-# when configuring your own machines, and delete/trim as needed.
-#
-# To instantiate it:
-#   nixos-rebuild switch --flake .#reference
-#
-# NOTE: The values below may pull in heavy packages (KDE-free GNOME-free wayland,
-# every SDK, etc.). Keep this host on a throwaway system or don't switch to it.
+# Reference host, for looking up how an option is written rather than for
+# deployment. It sets a representative value for most of the `conf.*` tree, so
+# it pulls in a lot of packages — every SDK, two desktop environments and both
+# container and VM stacks. Copy from it; do not switch to it.
 { pkgs, lib, ... }:
 {
   nixpkgs.hostPlatform = "x86_64-linux";
@@ -29,48 +21,34 @@
     timezone = "Asia/Kolkata";
     locale = "en_IN";
 
-    # `enableHomeManager` is the host-level switch for whether home-manager
-    # manages any user's home on this machine at all — on by default, opt
-    # out for service/headless accounts. Shown explicitly here since this is
-    # the reference host.
+    # Host-level switch for whether any home here is managed at all.
     enableHomeManager = true;
 
-    # conf.host.users — accounts on this host, keyed by username
-    # (attrsOf userSubmodule). Below: an organisation administrative account
-    # plus an ordinary device user.
+    # Accounts on this host, keyed by username: an administrative account and an
+    # ordinary device user.
     users = {
-      # conf.host.users.admin — organisation administrative account.
       admin = {
         fullName = "Reference Admin";
         email = "admin@example.com";
-        # `privileged` grants sudo via wheel, plus the privilege-adjacent groups
-        # (networkmanager, docker/podman, libvirtd/kvm, etc.) derived from
-        # whichever services this host enables. `groups` is only for extra,
-        # non-privilege memberships.
+        # Grants sudo, plus the privilege-adjacent groups for whichever services
+        # this host enables.
         privileged = true;
-        # `initialHashedPassword` uses mkpasswd format; here we only show a placeholder.
+        # mkpasswd format; a placeholder here.
         initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
-        # `allowHomeManagement` decides *who* manages it. Off by default, meaning
-        # the organisation does: a system rebuild activates the home and the
-        # user's own ~/.config/home-manager is not read. Setting it true is a
-        # reviewable grant — the system stops activating that home and the user
-        # activates `homeConfigurations.<user>@<host>` themselves with
-        # `home-switch`. Either way the organisation baseline, users/<name>/ and
-        # extraHomeConfig are merged in.
+        # Left off, so a system rebuild activates this home and the user's own
+        # ~/.config/home-manager is not read.
         allowHomeManagement = false;
-        # conf.host.users.admin.extraHomeConfig — extra home-manager module for this user.
+        # Extra Home Manager configuration for this user.
         extraHomeConfig = {
           programs.starship.enable = true;
         };
       };
 
-      # conf.host.users.bob — ordinary device user.
       bob = {
         fullName = "Bob Example";
         email = "bob@example.com";
-        # Ordinary non-admin user: no sudo, and network access limited to the
-        # narrow `network-users` permissions rather than the full
-        # `networkmanager` group.
+        # No sudo, and network access limited to the narrow `network-users`
+        # permissions rather than the full `networkmanager` group.
         privileged = false;
         extraHomeConfig = {};
       };
@@ -89,9 +67,7 @@
   conf.desktop = {
     enable = true;
 
-    # Per-environment toggles. Enabling several makes them ALL available as
-    # session choices at the greeter — it does not force a single choice on
-    # users, they pick whichever session they want at login.
+    # Enabling several makes them all available as session choices at the greeter.
     environments = {
       gnome = {
         enable = true;

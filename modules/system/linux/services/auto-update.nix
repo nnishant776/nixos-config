@@ -1,16 +1,10 @@
 # Periodic sync of conf.management.repo into the local checkout, followed by a
 # rebuild from it.
 #
-# The ordering matters more than it looks. The build happens first and
-# separately from the activation, so the two failure modes can be told apart:
-#
-#   build fails       nothing has changed. The running system is untouched and
-#                     there is nothing to roll back — rolling back here would
-#                     downgrade a healthy machine for no reason.
-#   activation fails  the system profile has already moved. That is the case
-#                     that needs a rollback.
-#
-# Collapsing those into one `nixos-rebuild switch` makes them indistinguishable.
+# Build and activation are separate steps: a build failure leaves the running
+# system untouched (nothing to roll back), while an activation failure means
+# the profile already moved and needs a rollback. Collapsing both into one
+# `nixos-rebuild switch` would make the two failure modes indistinguishable.
 { config, lib, pkgs, ... }:
 let
   cfg = config.conf.management;
@@ -55,8 +49,6 @@ let
       after="$(git -C "$repo" rev-parse HEAD)"
       log "revision $before -> $after (tracking $ref)"
 
-      # Build before touching the system profile, so a broken commit upstream
-      # cannot take the machine with it.
       if ! newSystem="$(nix build --no-link --print-out-paths \
             "$repo#nixosConfigurations.$host.config.system.build.toplevel")"; then
         log "build of $after failed — running system left untouched"
@@ -69,9 +61,9 @@ let
         exit 0
       fi
 
-      # Roll back to *this* generation by number, not with `--rollback`, which
-      # means "one back" and would quietly downgrade the machine if the switch
-      # failed before it moved the profile.
+      # Target this generation by number, not `--rollback` ("one back"), which
+      # would quietly downgrade the machine if the switch failed before moving
+      # the profile.
       systemProfile=/nix/var/nix/profiles/system
       previousLink="$(basename "$(readlink "$systemProfile")")"
       previousGen="''${previousLink#system-}"
@@ -95,10 +87,9 @@ let
         exit 1
       fi
 
-      # Reported, not acted on. Rolling back on a degraded system sounds
-      # appealing and behaves badly: one pre-existing failed unit would put the
-      # machine in a rollback loop on every tick. A real health gate belongs
-      # here, comparing the failed-unit set against a baseline.
+      # Reported, not acted on: rolling back on any degraded state would put a
+      # machine with one pre-existing failed unit into a rollback loop on every
+      # tick. A real health gate would need to compare against a baseline.
       state="$(systemctl is-system-running || true)"
       log "system state after switch: $state"
       if [ "$state" != "running" ]; then
@@ -147,9 +138,9 @@ in
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
 
-      # This service is part of the configuration it activates. Without this,
-      # switch-to-configuration restarts it mid-run and the run is killed by
-      # its own success.
+      # Required because this service is part of the configuration it
+      # activates; otherwise switch-to-configuration restarts it mid-run and
+      # the run is killed by its own success.
       restartIfChanged = false;
 
       serviceConfig = {

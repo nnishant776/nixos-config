@@ -105,20 +105,11 @@
             fi
           fi
 
-          # set -euo pipefail already aborts here if the install fails, so there
-          # is deliberately no status check after this line: one would be
-          # unreachable.
           nixos-install --root /mnt --flake "${self}#$host"
 
-          # The configuration is checked out from git rather than copied from
-          # the store path just installed: a store path has no .git and is
-          # read-only, and it is the git revision that makes the machine's
-          # on-disk state verifiable against what it was installed from. The
-          # sync service and attestation both rely on that revision.
-          #
-          # Read in a single eval — each `nix eval` against a host attribute
-          # evaluates that entire NixOS configuration, so asking four times is
-          # four full evaluations on a machine that is still an installer.
+          # Clone the configuration so that the machine has a git revision
+          # describing what it runs. Read in one eval, since each `nix eval`
+          # against a host attribute evaluates that whole configuration.
           management="$(nix eval --json "${self}#nixosConfigurations.''${host}.config.conf.management")"
           repoUrl="$(printf '%s' "$management" | ${pkgs.jq}/bin/jq -r '.repo.url // ""')"
           repoRef="$(printf '%s' "$management" | ${pkgs.jq}/bin/jq -r '.repo.ref')"
@@ -132,10 +123,8 @@
 
           ${pkgs.git}/bin/git clone --branch "$repoRef" "$repoUrl" "/mnt''${localPath}"
 
-          # self.rev only — deliberately not self.dirtyRev, which carries a
-          # "-dirty" suffix precisely because it is not a revision anything can
-          # be checked out to. Falling back to it would turn "you installed from
-          # uncommitted work" into a confusing "revision not found in remote".
+          # self.rev only: self.dirtyRev carries a "-dirty" suffix and is not a
+          # revision anything can be checked out to.
           installedRev="${self.rev or ""}"
 
           if [ -z "$installedRev" ]; then
@@ -151,15 +140,8 @@
           echo "checkout: path=/mnt''${localPath} ref=$repoRef rev=$finalRev"
         '';
 
-        # Note the absence of --impure: the system configurations evaluate
-        # purely, and passing it here would hide a regression that
-        # `nix run .#check-purity` exists to catch.
-        #
-        # The /etc/os-release check below is a different thing from the one that
-        # was removed from modules/core: this runs *on the machine being
-        # switched*, deciding which rebuild tool to invoke. Inspecting the local
-        # system is exactly right in a shell script and exactly wrong during
-        # evaluation.
+        # No --impure here: the system configurations evaluate purely, and
+        # passing it would hide a regression that `check-purity` exists to catch.
         nixFlakeSystemSwitch = pkgs.writeShellScriptBin "system-switch" ''
           set -euo pipefail
 
@@ -184,16 +166,9 @@
           fi
         '';
 
-        # Resolves the two things that are properties of *this machine* rather
-        # than of the flake: which user is switching, and which host they are
-        # on. Both used to be evaluation-time lookups, which made the
-        # homeConfigurations outputs impure and broke on Darwin.
-        #
-        # --impure is still required here, and only here: the user's own
-        # ~/.config/home-manager/default.nix lives outside the flake, so their
-        # home configuration cannot be reproduced from the flake alone. The
-        # system configurations evaluate purely, which is what lets a rebuild be
-        # verified against a git revision.
+        # Resolves the current user and host in the shell, so that the flake
+        # outputs stay pure. --impure is needed here, and only here, because a
+        # user's own ~/.config/home-manager/default.nix lives outside the flake.
         nixFlakeHomeSwitch = pkgs.writeShellScriptBin "home-switch" ''
           set -euo pipefail
 
@@ -214,9 +189,8 @@
                   | tr -d '[]"' | tr ',' '\n')"
 
           if ! printf '%s\n' "$keys" | grep -qxF "$target"; then
-            # A home that the organisation manages has no published
-            # configuration on purpose — the system activates it on rebuild.
-            # Say that, rather than reporting a missing attribute.
+            # A system-managed home has no published configuration by design, so
+            # say that rather than reporting a missing attribute.
             if nix eval "$flakePath#nixosConfigurations.$host.config.home-manager.users" \
                  --apply "u: u ? \"$user\"" 2>/dev/null | grep -q true; then
               echo "home-switch: '$user' has an organisation-managed home on '$host'," >&2
@@ -236,13 +210,9 @@
           exec nix run home-manager -- switch --flake "$flakePath#$target" --impure
         '';
 
-        # Guards against regressing the purity of the system-level flake
-        # outputs (nixosConfigurations / darwinConfigurations). A single
-        # builtins.readFile or similar impure read in a shared module is
-        # enough to make every host's evaluation require --impure again,
-        # which silently breaks automated rebuilds. This never passes
-        # --impure itself: its entire purpose is to fail when purity is
-        # lost.
+        # Evaluates every system output without --impure, so that an impure read
+        # added to a shared module fails here rather than in an automated
+        # rebuild. This must never pass --impure itself.
         checkPurityScript = pkgs.writeShellScriptBin "check-purity" ''
           set -euo pipefail
 

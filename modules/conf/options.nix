@@ -2,14 +2,9 @@
 let
   mkToggle = desc: lib.mkEnableOption desc;
 
-  # Keyed by username: `conf.host.users.<name>`. There is deliberately no `name`
-  # field — the attribute key is the username, so two users cannot silently
-  # collapse into one. They used to, in four separate places, each doing
-  # `listToAttrs (map (u: nameValuePair u.name ...))` over a free-form string.
-  #
-  # Only interactive accounts belong here. Service and system accounts are
-  # created by the modules that need them, with isSystemUser — an invariant in
-  # code, not a configuration knob.
+  # Keyed by username, so the attribute name is the account name. Only
+  # interactive accounts belong here; service accounts are created by the modules
+  # that need them.
   userSubmodule = lib.types.submodule ({ name, ... }: {
     options = {
       fullName = lib.mkOption {
@@ -27,15 +22,12 @@ let
         type = lib.types.bool;
         default = false;
         description = ''
-          Grant this user administrative access: sudo (via wheel), plus the
-          privilege-adjacent groups for whichever services the host enables —
-          networkmanager, docker/podman, libvirtd/kvm.
+          Grant this user administrative access: sudo through `wheel`, plus the
+          privilege-adjacent groups for whichever services the host enables,
+          namely networkmanager, docker, podman and libvirtd.
 
-          Off by default. Every one of those groups is root or near-root —
-          membership of `docker` alone is equivalent to root, since a container
-          can bind-mount the host filesystem — so they follow from this single
-          flag rather than from `groups`. That keeps sudo-equivalent access
-          declared in one place and makes it assertable.
+          Those groups all confer root or near-root access, so they follow from
+          this one flag rather than being listed individually in `groups`.
         '';
       };
       groups = lib.mkOption {
@@ -43,11 +35,9 @@ let
         default = [ ];
         description = ''
           Extra groups for the user, beyond those derived from `privileged` and
-          from the host's enabled services.
-
-          Privilege-granting groups (wheel, docker, podman, libvirtd, kvm,
-          networkmanager) are rejected here by an assertion — set
-          `privileged = true` instead.
+          from the host's enabled services. The privilege-granting groups
+          (wheel, docker, podman, libvirtd, networkmanager) are rejected here;
+          set `privileged = true` instead.
         '';
       };
       initialHashedPassword = lib.mkOption {
@@ -59,44 +49,36 @@ let
         type = lib.types.nullOr lib.types.bool;
         default = null;
         description = ''
-          Whether the *account itself* is created and maintained from this
-          configuration, as opposed to only its home.
+          Whether the account itself is created and maintained from this
+          configuration, rather than only its home.
 
-          `null` resolves by platform: true everywhere except Darwin, false on
-          Darwin. That split reflects where accounts normally come from — a
-          NixOS machine declares them, a Mac gets them from MDM or from whoever
-          set the laptop up.
+          `null` resolves to true on Linux and false on Darwin, where accounts
+          normally come from MDM. An explicit value overrides that. `false` is
+          not supported on Linux and is rejected by an assertion.
 
-          Set explicitly to override the platform. `false` on Linux is for
-          machines whose accounts arrive from a directory service; the account is
-          left alone and only group membership is arranged.
-
-          On Darwin, `true` puts the user in `users.knownUsers`, which is what
-          lets nix-darwin create it — and also what lets it **delete** it:
-          dropping a user from `conf.host.users` afterwards removes the account
-          on the next activation for any uid above 501. nix-darwin's own
-          documentation says not to put the administrator account in that list.
-          `uid` is required in this case.
+          Setting it true on Darwin adds the user to `users.knownUsers`, which is
+          also nix-darwin's delete list: removing the user from
+          `conf.host.users` later deletes the account on the next activation for
+          any uid above 501. A `uid` is required in that case.
         '';
       };
       uid = lib.mkOption {
         type = lib.types.nullOr lib.types.int;
         default = null;
         description = ''
-          Numeric user id. Only needed when `manageAccount` resolves true on
-          Darwin, where nix-darwin has no default for it.
+          Numeric user id, required when `manageAccount` resolves true on Darwin.
 
-          It must match what the account already has, or nix-darwin prints
-          "existing user has unexpected uid, skipping" and leaves it untouched.
-          macOS hands out ids from 501 in creation order, so the same person can
-          hold different ids on different machines unless MDM pins them.
+          It must match the id the account already has, or activation warns about
+          an unexpected uid and leaves the user untouched. macOS assigns ids from
+          501 in creation order, so one person can hold different ids on
+          different machines unless MDM pins them.
         '';
       };
       gid = lib.mkOption {
         type = lib.types.nullOr lib.types.int;
         default = null;
         description = ''
-          Numeric primary group id. Optional — nix-darwin defaults to 20
+          Numeric primary group id. Optional, since nix-darwin defaults to 20
           (`staff`), which is what a normal macOS account uses.
         '';
       };
@@ -104,25 +86,17 @@ let
         type = lib.types.bool;
         default = false;
         description = ''
-          Whether this user is permitted to manage their own home.
+          Whether this user manages their own home instead of the system doing
+          it.
 
-          Off by default: the organisation manages the home, a system rebuild
-          activates it, and the user's own ~/.config/home-manager/default.nix is
-          **not read** — a rebuild evaluates as root, and depending on a
-          user-writable file outside the flake would also mean a revision no
-          longer determines the result. Personal configuration for such a user
-          belongs in users/<name>/, tracked and reviewed.
+          Off by default, meaning a system rebuild activates the home and the
+          user's own `~/.config/home-manager/default.nix` is not read at all.
+          Personal configuration for such a user belongs in `users/<name>/`.
 
-          Granting it is a deliberate, reviewable act: the system stops
-          activating that user's home, and this flake publishes
-          `homeConfigurations.<user>@<host>` for them to activate themselves
-          with `home-switch`. The organisation baseline, users/<name>/ and
-          extraHomeConfig are still merged into it — what changes is who runs
-          the activation, not whether policy reaches them.
-
-          Exactly one of the two owns a home. They are disjoint by construction
-          here, because two Home-Manager generations over one home directory
-          delete each other's files on every activation.
+          Granting it stops the system activating that home and publishes
+          `homeConfigurations.<user>@<host>` for the user to activate with
+          `home-switch`. The baseline, `users/<name>/` and `extraHomeConfig` are
+          still merged in either way; only the activation changes hands.
         '';
       };
       extraHomeConfig = lib.mkOption {
@@ -229,12 +203,9 @@ in {
           }
         '';
         description = ''
-          Interactive accounts on this machine, keyed by username. A device
-          typically has the organisation's administrative account and the
-          person's own account.
-
-          Service and system accounts do not belong here — they are created by
-          the modules that need them.
+          Interactive accounts on this machine, keyed by username. Service and
+          system accounts do not belong here; they are created by the modules
+          that need them.
         '';
       };
 
@@ -242,13 +213,10 @@ in {
         type = lib.types.bool;
         default = true;
         description = ''
-          Whether homes on this machine are managed by Home-Manager at all, by
-          either the organisation or their users.
-
-          A property of the machine's management model rather than of any one
-          account, so it is set here and not per user. On by default; turning it
-          off means this flake says nothing about any home on the host — no
-          baseline is delivered and nothing is published for users to activate.
+          Whether homes on this machine are managed at all, by either the system
+          or their users. On by default; turning it off means nothing is
+          delivered to any home on the host and nothing is published for users to
+          activate.
 
           Who manages an individual home is `users.<name>.allowHomeManagement`.
         '';
@@ -270,21 +238,19 @@ in {
           default = null;
           example = "https://github.com/org/nixos-config.git";
           description = ''
-            Git remote this machine's configuration is deployed from. `os-install`
-            clones it to `conf.management.localPath`, and `autoUpdate` syncs from
-            it.
-
-            null means the machine has no upstream: `os-install` leaves
-            localPath empty and autoUpdate cannot be enabled.
+            Git remote this machine's configuration is deployed from.
+            `os-install` clones it to `conf.management.localPath` and
+            `autoUpdate` syncs from it. `null` means the machine has no upstream,
+            in which case the checkout is left empty and automatic updates stay
+            off.
           '';
         };
         ref = lib.mkOption {
           type = lib.types.str;
           default = "main";
           description = ''
-            Branch or tag to track. This is the staging mechanism — point a
-            canary ring at one ref and the rest of the fleet at another, and
-            promote by moving the slower ref.
+            Branch or tag to track. Point a canary group of machines at one ref
+            and the rest at another to stage a rollout.
           '';
         };
       };
@@ -294,12 +260,11 @@ in {
         default = "/etc/nixos";
         description = ''
           Where the configuration checkout lives on the machine. The default is
-          what `nixos-rebuild` looks for when invoked with no arguments, so
-          leaving it alone means a bare `nixos-rebuild switch` works.
+          where `nixos-rebuild` looks when given no flake, so leaving it alone
+          means a bare `nixos-rebuild switch` works.
 
-          Kept as a git checkout rather than a copy so that the revision is a
-          verifiable statement about what the machine should be running:
-          `git -C <path> rev-parse HEAD`.
+          It is a git checkout rather than a copy, so `git -C <path> rev-parse
+          HEAD` states which revision the machine should be running.
         '';
       };
 
@@ -311,15 +276,10 @@ in {
             Periodically sync `conf.management.repo` into `localPath` and
             rebuild from it.
 
-            `null` resolves to whether this machine has an upstream at all: on
-            when `conf.management.repo.url` is set, off when it is null. A fleet
-            machine therefore syncs by virtue of having been given a repository,
-            and a machine with no upstream is quietly left alone.
-
-            Set `false` to opt a machine out while still pointing it at a
-            repository — a development box you rebuild by hand, or one held back
-            from a rollout. Setting `true` without a `repo.url` is an error
-            rather than a no-op, since it asks for something unsatisfiable.
+            `null` means on when `conf.management.repo.url` is set and off when
+            it is not, so a machine syncs by virtue of having been given a
+            repository. Set `false` to opt a machine out while still pointing it
+            at one. Setting `true` without a `repo.url` is an error.
           '';
         };
 
@@ -328,17 +288,13 @@ in {
           default = true;
           description = ''
             If activating the new configuration fails, return the system to the
-            generation it was running.
+            generation it was running. On by default, so that a machine whose new
+            generation breaks networking can still be reached and retried.
 
-            On by default because a half-activated system is what takes a machine
-            out of reach: if the new generation breaks networking or sshd, the
-            machine stops syncing and has no way back. Rolling back keeps it
-            manageable so a later tick can retry.
-
-            The cost is that a rolled-back machine deliberately does not match
-            its checked-out revision, so it must be reported — otherwise it
-            diverges silently forever. Turn this off if you would rather a
-            failure be unmissable than survivable.
+            Note that a rolled-back machine no longer matches its checked-out
+            revision until upstream is fixed, which is a condition worth
+            reporting. Turn this off to leave a failed activation in place
+            instead.
           '';
         };
 
@@ -352,8 +308,8 @@ in {
           type = lib.types.int;
           default = 1800;
           description = ''
-            Jitter added to each run so a fleet does not converge on the binary
-            cache simultaneously.
+            Jitter added to each run so that a fleet does not hit the binary cache
+            simultaneously.
           '';
         };
 
@@ -361,10 +317,9 @@ in {
           type = lib.types.bool;
           default = false;
           description = ''
-            Reboot after a switch when the new system's kernel or initrd differs
-            from the running one. Off by default: the new userspace is active
-            either way, and an unattended reboot is rarely what you want on a
-            workstation.
+            Reboot after a switch when the new kernel or initrd differs from the
+            running one. Off by default, since the new userspace is active either
+            way and an unattended reboot is rarely wanted on a workstation.
           '';
         };
 
@@ -372,13 +327,10 @@ in {
           type = lib.types.bool;
           default = true;
           description = ''
-            Hard-reset localPath to the tracked ref before building, discarding
-            local edits.
-
-            On by default, deliberately: it is what makes the checked-out
-            revision an honest description of the machine. With it off, a local
-            edit silently parks the machine on a configuration no revision
-            describes, and the sync quietly stops converging.
+            Hard-reset `localPath` to the tracked ref before building, discarding
+            any local edits. On by default, so that the checked-out revision
+            always describes the machine. With it off, a machine that has
+            diverged stops converging instead.
           '';
         };
       };
@@ -389,22 +341,12 @@ in {
       type = lib.types.enum [ "nixos" "darwin" "system-manager" ];
       description = ''
         Which kind of system this configuration is deployed to. Set by
-        lib/mkHost.nix, which already decides between nixosSystem and
-        darwinSystem — hosts do not set it.
+        `lib/mkHost.nix`; hosts do not set it.
 
-        This exists because some differences are a property of the *deployment*
-        rather than of the platform, and so cannot be expressed with
-        `pkgs.stdenv.hostPlatform.isLinux`/`isDarwin`: NixOS and Ubuntu are both
-        Linux, but on NixOS nix belongs to the system closure while on Ubuntu
-        this configuration manages an externally installed nix.
-
-        Use `pkgs.stdenv.hostPlatform.*` for platform differences and this for
-        deployment-kind differences. Never inspect the evaluating machine —
-        reading /etc/os-release describes the builder, not the target, and makes
-        every build impure.
-
-        No default on purpose: a missing value should fail loudly rather than
-        silently assume a deployment kind.
+        Use it for differences that belong to the deployment rather than the
+        platform, such as whether nix is part of the system closure, and use
+        `pkgs.stdenv.hostPlatform.isLinux`/`isDarwin` for the rest. There is no
+        default, so a missing value fails rather than being assumed.
       '';
     };
 
