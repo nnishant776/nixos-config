@@ -198,8 +198,11 @@ One of `minimal` · `server` · `workstation` · `developer` · `gaming` · `emb
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `desktop.enable` | toggle | `false` | GUI stack, display managers |
-| `desktop.environment` | nullOr enum: `gnome`/`hyprland`/`sway`/`all` | `null` | Which DE(s) to activate |
+| `desktop.environments.gnome.enable` | toggle | `false` | Make GNOME available |
+| `desktop.environments.hyprland.enable` | toggle | `false` | Make Hyprland available |
 | `desktop.environments.hyprland.shell` | enum: `none`/`caelestia`/`noctalia`/`dms` | `"none"` | Hyprland shell |
+| `desktop.environments.sway.enable` | toggle | `false` | Make Sway available |
+| `desktop.defaultEnvironment` | nullOr enum: `gnome`/`hyprland`/`sway` | `null` | Session the greeter preselects/launches by default; doesn't restrict availability |
 | `desktop.packages` | listOf package | `[]` | Replaces default desktop app set |
 | `desktop.extraPackages` | listOf package | `[]` | Appended to desktop apps |
 

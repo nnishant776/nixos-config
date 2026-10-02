@@ -1,7 +1,7 @@
 { pkgs, lib, inputs, config, ... }:
 let
   cfg = config.conf.desktop;
-  isNoctalia = cfg.enable && (cfg.environment == "hyprland" || cfg.environment == "all") && (cfg.environments.hyprland.shell == "noctalia");
+  isNoctalia = cfg.enable && cfg.environments.hyprland.enable && (cfg.environments.hyprland.shell == "noctalia");
 in {
   config = lib.mkIf isNoctalia {
     programs = {

@@ -26,8 +26,10 @@
     };
 
     desktop = {
-      environment = "hyprland";
-      environments.hyprland.shell = "none";
+      environments.hyprland = {
+        enable = true;
+        shell = "none";
+      };
     };
 
     development = {

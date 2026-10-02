@@ -1,6 +1,6 @@
 { pkgs, lib, config, ... }:
 let
-  isSway = config.conf.desktop.enable && (config.conf.desktop.environment == "sway" || config.conf.desktop.environment == "all");
+  isSway = config.conf.desktop.enable && config.conf.desktop.environments.sway.enable;
   swayConfig = pkgs.writeText "greetd-sway-config" ''
     # `-l` activates layer-shell mode. Notice that `swaymsg exit` will run after gtkgreet.
     exec "${pkgs.greetd.gtkgreet}/bin/gtkgreet -l; swaymsg exit"

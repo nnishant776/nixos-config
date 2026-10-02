@@ -69,16 +69,28 @@
   conf.desktop = {
     enable = true;
 
-    # environment: (enum: gnome|hyprland|sway|all) — "all" enables every shell.
-    environment = "hyprland";
-
-    # Per-environment options (when that environment is active).
+    # Per-environment toggles. Enabling several makes them ALL available as
+    # session choices at the greeter — it does not force a single choice on
+    # users, they pick whichever session they want at login.
     environments = {
+      gnome = {
+        enable = true;
+      };
       hyprland = {
+        enable = true;
         # shell: (enum: none|caelestia|noctalia|dms)
         shell = "dms";
       };
+      sway = {
+        enable = false;
+      };
     };
+
+    # defaultEnvironment: (nullOr enum: gnome|hyprland|sway) — which session the
+    # greeter should preselect/launch by default; null lets the greeter decide.
+    # This only affects the default selection, not which environments are
+    # available (that's controlled by environments.<name>.enable above).
+    defaultEnvironment = "hyprland";
   };
 
   # ───────────────────────────────────────────────────────────────────────────

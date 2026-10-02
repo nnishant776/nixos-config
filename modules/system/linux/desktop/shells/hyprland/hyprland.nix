@@ -1,7 +1,7 @@
 { inputs, pkgs, lib, config, ... }:
 let
   cfg = config.conf.desktop;
-  isHyprland = cfg.enable && (cfg.environment == "hyprland" || cfg.environment == "all");
+  isHyprland = cfg.enable && cfg.environments.hyprland.enable;
 in {
   config = lib.mkIf isHyprland {
     # Set OZONE env var by default
@@ -40,7 +40,16 @@ in {
       enable = true;
       settings = {
         default_session = {
-          command = "${pkgs.tuigreet}/bin/tuigreet --time --cmd Hyprland";
+          command = lib.concatStringsSep " " ([
+            "${pkgs.tuigreet}/bin/tuigreet"
+            "--time"
+            # Unquoted on purpose: greetd splits this string into argv itself, so a
+            # literal quote can end up inside the path it passes to tuigreet.
+            # Store paths never contain spaces, so there is nothing to protect.
+            "--sessions" "${config.services.displayManager.sessionData.desktops}/share/wayland-sessions"
+          ] ++ lib.optionals (cfg.defaultEnvironment == "hyprland" || cfg.defaultEnvironment == null) [
+            "--cmd" "Hyprland"
+          ]);
           user = "greeter";
         };
       };

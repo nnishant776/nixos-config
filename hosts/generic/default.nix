@@ -26,8 +26,10 @@
 
     desktop = {
       enable = true;
-      environment = "hyprland";
-      environments.hyprland.shell = "dms";
+      environments.hyprland = {
+        enable = true;
+        shell = "dms";
+      };
     };
 
     development = {

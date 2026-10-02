@@ -1,7 +1,7 @@
 { inputs, config, lib, pkgs, ... }:
 let
   cfg = config.conf.desktop;
-  isDMS = cfg.enable && (cfg.environment == "hyprland" || cfg.environment == "all") && (cfg.environments.hyprland.shell == "dms");
+  isDMS = cfg.enable && cfg.environments.hyprland.enable && (cfg.environments.hyprland.shell == "dms");
 in {
   config = lib.mkIf isDMS {
     programs = {

@@ -164,19 +164,26 @@ in {
     # ── Desktop & GUI ──
     desktop = {
       enable = mkToggle "Enable GUI desktop environments and display managers";
-      environment = lib.mkOption {
-        type = lib.types.nullOr (lib.types.enum [ "gnome" "hyprland" "sway" "all" ]);
-        default = null;
-        description = "Desktop environment to activate.";
-      };
       environments = {
+        gnome = {
+          enable = mkToggle "Enable the GNOME desktop environment";
+        };
         hyprland = {
+          enable = mkToggle "Enable the Hyprland desktop environment";
           shell = lib.mkOption {
             type = lib.types.enum [ "none" "caelestia" "noctalia" "dms" ];
             default = "none";
             description = "Optional custom shell for Hyprland.";
           };
         };
+        sway = {
+          enable = mkToggle "Enable the Sway desktop environment";
+        };
+      };
+      defaultEnvironment = lib.mkOption {
+        type = lib.types.nullOr (lib.types.enum [ "gnome" "hyprland" "sway" ]);
+        default = null;
+        description = "Which session a greeter should preselect/launch by default; null lets the greeter decide. Does not restrict which environments are available — enable/disable those individually via environments.<name>.enable.";
       };
       packages = lib.mkOption {
         type = lib.types.listOf lib.types.package;
