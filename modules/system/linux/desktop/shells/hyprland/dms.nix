@@ -8,17 +8,8 @@ in {
       dank-material-shell.enable = true;
     };
 
-    services = {
-      displayManager.dms-greeter = {
-        enable = true;
-        compositor.name = "hyprland";
-        package = inputs.dms.packages.${pkgs.stdenv.hostPlatform.system}.default;
-      };
-    };
-
-    security.pam.services.greetd = {
-      fprintAuth = true;
-      u2fAuth = true;
-    };
+    # This module configures the DMS shell only. The login screen is regreet,
+    # shared by every environment (../../display-manager.nix) — the matching
+    # dms-greeter is deliberately not used.
   };
 }

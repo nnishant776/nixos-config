@@ -78,9 +78,51 @@ to dictate. A user's own configuration lives in their `~/.config/home-manager/`
 and is applied by standalone Home Manager, which they run themselves.
 
 So `conf.desktop.environments.<name>.enable` decides which environments a host
-*makes available* (enable several to install them all), and
-`conf.desktop.defaultEnvironment` only picks the greeter's preselected/default
-session — neither forces which one a user must use.
+*makes available* — enable several to install them all. Nothing here forces which
+one a user must use; they pick a session at the greeter.
+
+### The greeter
+
+There is exactly one, and it is not configurable: **ReGreet**, run inside `cage`
+via greetd, set up unconditionally by
+`modules/system/linux/desktop/display-manager.nix` whenever `conf.desktop.enable`
+is set. Environment modules must never enable a greeter of their own — two
+display managers race for the seat, and an assertion catches it.
+
+ReGreet is the one greeter here with no compositor affinity. It builds its
+session list from `XDG_DATA_DIRS` at runtime, and that variable is published
+system-wide from `services.displayManager.sessionPackages` and reaches the
+greeter through its PAM session (`pam_env`), so it lists exactly the sessions the
+host installs — GNOME, Hyprland and Sway through the same login screen. The
+alternatives all pull in the opposite direction: GDM is GNOME's, tuigreet needs
+an explicit `--sessions` path, gtkgreet needs a hand-written
+`/etc/greetd/environments` list, and the DMS and noctalia greeters each belong to
+their own shell.
+
+Customising it goes through the upstream module rather than a `conf.*` wrapper:
+`programs.regreet.settings` (freeform TOML → `/etc/greetd/regreet.toml`),
+`extraCss`, `theme`/`iconTheme`/`cursorTheme`/`font`, and `cageArgs` (cage's own
+flags, default `[ "-s" "-d" ]`). Fingerprint and security-key auth at the login
+prompt come from `security.pam.services.greetd`, which the module sets.
+
+One behaviour worth knowing: there is no "default session" setting. ReGreet
+records each user's last-used session in `/var/lib/regreet/state.toml` and
+preselects that, which is why this flake has no `defaultEnvironment` option.
+
+### X11 sessions
+
+greetd starts no X server — it hands the chosen command to PAM on a VT — so an
+X11 session's bare `Exec=` has no display to run against. `startx` brings a
+server up on the free VT and execs the session as its client, and ReGreet
+prefixes X11 sessions with `commands.x11_prefix` to do exactly that. Its upstream
+default, `startx /usr/bin/env`, relies on a PATH the greeter session does not
+have, so `display-manager.nix` points it at absolute store paths instead.
+
+This is wired only when `services.xserver.enable` is set, so hosts without an X
+server do not carry `xinit` in their closure. Note that none of the environments
+this flake currently offers provides an X11 session: this nixpkgs' GNOME is
+Wayland-only, and Hyprland and Sway are Wayland by design. The plumbing matters
+once an X11 environment (xfce, i3, …) is added.
 
 Per-user configuration reaching the *system* build comes from three in-flake
 layers only:
@@ -202,7 +244,6 @@ One of `minimal` · `server` · `workstation` · `developer` · `gaming` · `emb
 | `desktop.environments.hyprland.enable` | toggle | `false` | Make Hyprland available |
 | `desktop.environments.hyprland.shell` | enum: `none`/`caelestia`/`noctalia`/`dms` | `"none"` | Hyprland shell |
 | `desktop.environments.sway.enable` | toggle | `false` | Make Sway available |
-| `desktop.defaultEnvironment` | nullOr enum: `gnome`/`hyprland`/`sway` | `null` | Session the greeter preselects/launches by default; doesn't restrict availability |
 | `desktop.packages` | listOf package | `[]` | Replaces default desktop app set |
 | `desktop.extraPackages` | listOf package | `[]` | Appended to desktop apps |
 
@@ -320,8 +361,10 @@ special syntax required. Toggle something off, swap an enum, extend lists:
     };
 
     desktop = {
-      environment = "hyprland";               # not "all"
-      environments.hyprland.shell = "caelestia";
+      environments.hyprland = {
+        enable = true;                         # only Hyprland on this box
+        shell = "caelestia";
+      };
       extraPackages = with pkgs; [ discord spotify ];
     };
 

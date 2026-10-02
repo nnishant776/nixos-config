@@ -85,12 +85,6 @@
         enable = false;
       };
     };
-
-    # defaultEnvironment: (nullOr enum: gnome|hyprland|sway) — which session the
-    # greeter should preselect/launch by default; null lets the greeter decide.
-    # This only affects the default selection, not which environments are
-    # available (that's controlled by environments.<name>.enable above).
-    defaultEnvironment = "hyprland";
   };
 
   # ───────────────────────────────────────────────────────────────────────────

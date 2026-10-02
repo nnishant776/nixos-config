@@ -9,12 +9,6 @@ in {
         enable = true;
         recommendedServices.enable = true;
       };
-      noctalia-greeter = {
-        enable = true;
-        settings = {
-          session.default = "Hyprland (uwsm-managed)";
-        };
-      };
     };
 
     environment.systemPackages = [

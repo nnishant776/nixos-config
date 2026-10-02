@@ -3,8 +3,8 @@ let
   isGnome = config.conf.desktop.enable && config.conf.desktop.environments.gnome.enable;
 in {
   config = lib.mkIf isGnome {
-    # Enable GDM login manager
-    services.displayManager.gdm.enable = true;
+    # The greeter lives in ../display-manager.nix: it serves every installed
+    # session, so it is selected per host rather than per environment.
 
     # Enable GNOME
     services.desktopManager.gnome.enable = true;

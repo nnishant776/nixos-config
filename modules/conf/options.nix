@@ -180,11 +180,6 @@ in {
           enable = mkToggle "Enable the Sway desktop environment";
         };
       };
-      defaultEnvironment = lib.mkOption {
-        type = lib.types.nullOr (lib.types.enum [ "gnome" "hyprland" "sway" ]);
-        default = null;
-        description = "Which session a greeter should preselect/launch by default; null lets the greeter decide. Does not restrict which environments are available — enable/disable those individually via environments.<name>.enable.";
-      };
       packages = lib.mkOption {
         type = lib.types.listOf lib.types.package;
         default = [];

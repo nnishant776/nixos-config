@@ -35,25 +35,7 @@ in {
       };
     };
 
-    # Enable Greetd if no other shell provides a greeter
-    services.greetd = lib.mkIf (cfg.environments.hyprland.shell == "none") {
-      enable = true;
-      settings = {
-        default_session = {
-          command = lib.concatStringsSep " " ([
-            "${pkgs.tuigreet}/bin/tuigreet"
-            "--time"
-            # Unquoted on purpose: greetd splits this string into argv itself, so a
-            # literal quote can end up inside the path it passes to tuigreet.
-            # Store paths never contain spaces, so there is nothing to protect.
-            "--sessions" "${config.services.displayManager.sessionData.desktops}/share/wayland-sessions"
-          ] ++ lib.optionals (cfg.defaultEnvironment == "hyprland" || cfg.defaultEnvironment == null) [
-            "--cmd" "Hyprland"
-          ]);
-          user = "greeter";
-        };
-      };
-    };
+    # The greeter lives in ../../display-manager.nix.
 
     # Configure Polkit agent
     systemd.user.services.hyprpolkitagent = lib.mkIf (cfg.environments.hyprland.shell == "none") {
@@ -106,7 +88,6 @@ in {
 
       # Session management
       hypridle
-      greetd
     ];
   };
 }
