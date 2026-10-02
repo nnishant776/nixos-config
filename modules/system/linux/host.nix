@@ -1,6 +1,6 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, flakeLib, ... }:
 let
-  allUsers = [ config.conf.host.adminUser ] ++ config.conf.host.extraUsers;
+  users = config.conf.host.users;
   svc = config.conf.systemServices;
 
   # Groups that confer root or near-root. These must follow from a user's
@@ -76,6 +76,10 @@ let
     ++ lib.optionals (!user.privileged && svc.networking.enable) [ "network-users" ];
 
   offendingGroups = user: lib.intersectLists user.groups privilegedGroups;
+
+  # manageAccount exists for Darwin, where accounts come from MDM. On Linux it
+  # must stay true — asserted below rather than half-supported.
+  accountManaged = flakeLib.accountManaged config.conf.platform;
 in
 {
   config = {
@@ -83,12 +87,12 @@ in
     networking.hostName = config.conf.host.name;
 
     # Add registered users
-    users.users = lib.listToAttrs (builtins.map (user: lib.nameValuePair user.name {
+    users.users = lib.mapAttrs (username: user: {
       isNormalUser = true;
       description = user.fullName;
       extraGroups = lib.unique (groupsFor user);
       initialHashedPassword = user.initialHashedPassword;
-    }) allUsers);
+    }) users;
 
     # Holds the narrow NetworkManager permissions below.
     users.groups = lib.mkIf svc.networking.enable { network-users = { }; };
@@ -119,28 +123,49 @@ in
     assertions =
       # `groups` is for non-privilege extras only, so that sudo-equivalent
       # access is declared in exactly one place and can be checked.
-      (map (user: {
+      (lib.mapAttrsToList (username: user: {
         assertion = offendingGroups user == [ ];
         message =
-          "conf.host: user '${user.name}' lists privilege-granting group(s) "
+          "conf.host.users.${username} lists privilege-granting group(s) "
           + lib.concatStringsSep ", " (offendingGroups user)
           + " in `groups`. Set `privileged = true` instead — those groups are"
           + " derived from that flag.";
-      }) allUsers)
+      }) users)
       ++
       # Defence in depth: check the merged result, so a grant arriving from any
-      # other module is caught too.
-      (map (user: {
+      # other module is caught too. Only for accounts declared here — there is
+      # no users.users entry to inspect for the others.
+      (lib.mapAttrsToList (username: user: {
         assertion =
           user.privileged
-          || lib.intersectLists config.users.users.${user.name}.extraGroups privilegedGroups == [ ];
+          || lib.intersectLists config.users.users.${username}.extraGroups privilegedGroups == [ ];
         message =
-          "conf.host: non-privileged user '${user.name}' ended up in "
+          "conf.host.users.${username} is not privileged but ended up in "
           + lib.concatStringsSep ", "
-            (lib.intersectLists config.users.users.${user.name}.extraGroups privilegedGroups)
+            (lib.intersectLists config.users.users.${username}.extraGroups privilegedGroups)
           + ", which confers root or near-root. Something outside conf.host"
           + " granted it.";
-      }) allUsers);
+      }) users)
+      ++
+      (lib.mapAttrsToList (username: user: {
+        assertion = accountManaged user;
+        message =
+          "conf.host.users.${username} has manageAccount = false, which is not"
+          + " supported on Linux. Home-Manager's NixOS integration reads"
+          + " users.users.${username}.name and .home unconditionally, so it needs"
+          + " an account this configuration declares; and granting groups to an"
+          + " account declared elsewhere would mean managing local groups that a"
+          + " directory service may also own, with the GID collisions that"
+          + " implies. The flag exists for Darwin, where accounts come from MDM.";
+      }) users);
+
+    # Not an assertion: a kiosk or an appliance managed entirely by the sync
+    # timer legitimately has nobody who can sudo. On a workstation it is a
+    # lockout, so it is worth saying out loud.
+    warnings = lib.optional (!(lib.any (u: u.privileged) (lib.attrValues users)))
+      ("conf.host.users on '${config.conf.host.name}' declares no privileged user,"
+        + " so no account on this machine can use sudo. Intentional for an"
+        + " appliance; a lockout for anything interactive.");
 
     # Set timezone
     time.timeZone = config.conf.host.timezone;

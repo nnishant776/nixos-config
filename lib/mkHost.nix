@@ -46,6 +46,10 @@ let
     ];
   };
 
+  # Home Manager is wired in here for organisation-managed homes, which is the
+  # default. Users granted conf.host.*.allowHomeManagement are excluded from this
+  # path and get a published homeConfigurations entry instead, so exactly one
+  # generation ever owns a given home directory.
   commonModules = [
     (hostDir + "/default.nix")
     hostIdentity

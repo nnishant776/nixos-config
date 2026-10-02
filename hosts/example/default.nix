@@ -29,39 +29,52 @@
     timezone = "Asia/Kolkata";
     locale = "en_IN";
 
-    # conf.host.adminUser — primary admin account (userSubmodule).
-    adminUser = {
-      name = "admin";
-      fullName = "Reference Admin";
-      email = "admin@example.com";
-      # `privileged` grants sudo via wheel, plus the privilege-adjacent groups
-      # (networkmanager, docker/podman, libvirtd/kvm, etc.) derived from
-      # whichever services this host enables. `groups` is only for extra,
-      # non-privilege memberships.
-      privileged = true;
-      # `initialHashedPassword` uses mkpasswd format; here we only show a placeholder.
-      initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
-      enableHomeManager = true;
-      # conf.host.adminUser.extraHomeConfig — extra home-manager module for this user.
-      extraHomeConfig = {
-        programs.starship.enable = true;
-      };
-    };
+    # `enableHomeManager` is the host-level switch for whether home-manager
+    # manages any user's home on this machine at all — on by default, opt
+    # out for service/headless accounts. Shown explicitly here since this is
+    # the reference host.
+    enableHomeManager = true;
 
-    # conf.host.extraUsers — additional user accounts (same submodule shape).
-    extraUsers = [
-      {
-        name = "bob";
+    # conf.host.users — accounts on this host, keyed by username
+    # (attrsOf userSubmodule). Below: an organisation administrative account
+    # plus an ordinary device user.
+    users = {
+      # conf.host.users.admin — organisation administrative account.
+      admin = {
+        fullName = "Reference Admin";
+        email = "admin@example.com";
+        # `privileged` grants sudo via wheel, plus the privilege-adjacent groups
+        # (networkmanager, docker/podman, libvirtd/kvm, etc.) derived from
+        # whichever services this host enables. `groups` is only for extra,
+        # non-privilege memberships.
+        privileged = true;
+        # `initialHashedPassword` uses mkpasswd format; here we only show a placeholder.
+        initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
+        # `allowHomeManagement` decides *who* manages it. Off by default, meaning
+        # the organisation does: a system rebuild activates the home and the
+        # user's own ~/.config/home-manager is not read. Setting it true is a
+        # reviewable grant — the system stops activating that home and the user
+        # activates `homeConfigurations.<user>@<host>` themselves with
+        # `home-switch`. Either way the organisation baseline, users/<name>/ and
+        # extraHomeConfig are merged in.
+        allowHomeManagement = false;
+        # conf.host.users.admin.extraHomeConfig — extra home-manager module for this user.
+        extraHomeConfig = {
+          programs.starship.enable = true;
+        };
+      };
+
+      # conf.host.users.bob — ordinary device user.
+      bob = {
         fullName = "Bob Example";
         email = "bob@example.com";
         # Ordinary non-admin user: no sudo, and network access limited to the
         # narrow `network-users` permissions rather than the full
         # `networkmanager` group.
         privileged = false;
-        enableHomeManager = false;
         extraHomeConfig = {};
-      }
-    ];
+      };
+    };
 
     # conf.host.ldLibraries — exported shared libraries (defaults to ./default-ld-libs.nix).
     ldLibraries = {

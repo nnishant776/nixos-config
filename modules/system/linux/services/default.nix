@@ -9,5 +9,6 @@
     ./containerisation.nix
     ./virtualisation.nix
     ./sharing.nix
+    ./auto-update.nix
   ];
 }

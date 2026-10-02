@@ -2,17 +2,21 @@
 let
   mkToggle = desc: lib.mkEnableOption desc;
 
-  userSubmodule = lib.types.submodule {
+  # Keyed by username: `conf.host.users.<name>`. There is deliberately no `name`
+  # field — the attribute key is the username, so two users cannot silently
+  # collapse into one. They used to, in four separate places, each doing
+  # `listToAttrs (map (u: nameValuePair u.name ...))` over a free-form string.
+  #
+  # Only interactive accounts belong here. Service and system accounts are
+  # created by the modules that need them, with isSystemUser — an invariant in
+  # code, not a configuration knob.
+  userSubmodule = lib.types.submodule ({ name, ... }: {
     options = {
-      name = lib.mkOption {
-        type = lib.types.str;
-        default = "admin";
-        description = "Username.";
-      };
       fullName = lib.mkOption {
         type = lib.types.str;
-        default = "Administrator";
-        description = "User's full name.";
+        default = name;
+        defaultText = lib.literalExpression "the attribute name";
+        description = "User's full name. Defaults to the username.";
       };
       email = lib.mkOption {
         type = lib.types.str;
@@ -51,10 +55,75 @@ let
         default = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
         description = "Initial hashed password (change after install).";
       };
-      enableHomeManager = lib.mkOption {
+      manageAccount = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+        description = ''
+          Whether the *account itself* is created and maintained from this
+          configuration, as opposed to only its home.
+
+          `null` resolves by platform: true everywhere except Darwin, false on
+          Darwin. That split reflects where accounts normally come from — a
+          NixOS machine declares them, a Mac gets them from MDM or from whoever
+          set the laptop up.
+
+          Set explicitly to override the platform. `false` on Linux is for
+          machines whose accounts arrive from a directory service; the account is
+          left alone and only group membership is arranged.
+
+          On Darwin, `true` puts the user in `users.knownUsers`, which is what
+          lets nix-darwin create it — and also what lets it **delete** it:
+          dropping a user from `conf.host.users` afterwards removes the account
+          on the next activation for any uid above 501. nix-darwin's own
+          documentation says not to put the administrator account in that list.
+          `uid` is required in this case.
+        '';
+      };
+      uid = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = ''
+          Numeric user id. Only needed when `manageAccount` resolves true on
+          Darwin, where nix-darwin has no default for it.
+
+          It must match what the account already has, or nix-darwin prints
+          "existing user has unexpected uid, skipping" and leaves it untouched.
+          macOS hands out ids from 501 in creation order, so the same person can
+          hold different ids on different machines unless MDM pins them.
+        '';
+      };
+      gid = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = ''
+          Numeric primary group id. Optional — nix-darwin defaults to 20
+          (`staff`), which is what a normal macOS account uses.
+        '';
+      };
+      allowHomeManagement = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = "Enable Home-Manager configuration for this user.";
+        description = ''
+          Whether this user is permitted to manage their own home.
+
+          Off by default: the organisation manages the home, a system rebuild
+          activates it, and the user's own ~/.config/home-manager/default.nix is
+          **not read** — a rebuild evaluates as root, and depending on a
+          user-writable file outside the flake would also mean a revision no
+          longer determines the result. Personal configuration for such a user
+          belongs in users/<name>/, tracked and reviewed.
+
+          Granting it is a deliberate, reviewable act: the system stops
+          activating that user's home, and this flake publishes
+          `homeConfigurations.<user>@<host>` for them to activate themselves
+          with `home-switch`. The organisation baseline, users/<name>/ and
+          extraHomeConfig are still merged into it — what changes is who runs
+          the activation, not whether policy reaches them.
+
+          Exactly one of the two owns a home. They are disjoint by construction
+          here, because two Home-Manager generations over one home directory
+          delete each other's files on every activation.
+        '';
       };
       extraHomeConfig = lib.mkOption {
         type = lib.types.deferredModule;
@@ -62,7 +131,7 @@ let
         description = "Additional Home-Manager configuration for this user.";
       };
     };
-  };
+  });
 
   mkSdkGroup = desc: {
     enable = mkToggle "Enable ${desc}";
@@ -150,21 +219,167 @@ in {
         default = "en_IN";
         description = "Default locale.";
       };
-      adminUser = lib.mkOption {
-        type = userSubmodule;
-        default = {};
-        description = "Primary administrative user configuration.";
+      users = lib.mkOption {
+        type = lib.types.attrsOf userSubmodule;
+        default = { };
+        example = lib.literalExpression ''
+          {
+            orgadmin = { fullName = "Org Admin"; privileged = true; };
+            alice = { fullName = "Alice"; allowHomeManagement = true; };
+          }
+        '';
+        description = ''
+          Interactive accounts on this machine, keyed by username. A device
+          typically has the organisation's administrative account and the
+          person's own account.
+
+          Service and system accounts do not belong here — they are created by
+          the modules that need them.
+        '';
       };
-      extraUsers = lib.mkOption {
-        type = lib.types.listOf userSubmodule;
-        default = [];
-        description = "Additional system user accounts.";
+
+      enableHomeManager = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Whether homes on this machine are managed by Home-Manager at all, by
+          either the organisation or their users.
+
+          A property of the machine's management model rather than of any one
+          account, so it is set here and not per user. On by default; turning it
+          off means this flake says nothing about any home on the host — no
+          baseline is delivered and nothing is published for users to activate.
+
+          Who manages an individual home is `users.<name>.allowHomeManagement`.
+        '';
       };
       ldLibraries = {
         enable = lib.mkEnableOption "Enable LD libraries linkage";
         libraries = lib.mkOption {
           type = lib.types.listOf lib.types.package;
           default = (import ./default-ld-libs.nix);
+        };
+      };
+    };
+
+    # ── Fleet Management ──
+    management = {
+      repo = {
+        url = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "https://github.com/org/nixos-config.git";
+          description = ''
+            Git remote this machine's configuration is deployed from. `os-install`
+            clones it to `conf.management.localPath`, and `autoUpdate` syncs from
+            it.
+
+            null means the machine has no upstream: `os-install` leaves
+            localPath empty and autoUpdate cannot be enabled.
+          '';
+        };
+        ref = lib.mkOption {
+          type = lib.types.str;
+          default = "main";
+          description = ''
+            Branch or tag to track. This is the staging mechanism — point a
+            canary ring at one ref and the rest of the fleet at another, and
+            promote by moving the slower ref.
+          '';
+        };
+      };
+
+      localPath = lib.mkOption {
+        type = lib.types.str;
+        default = "/etc/nixos";
+        description = ''
+          Where the configuration checkout lives on the machine. The default is
+          what `nixos-rebuild` looks for when invoked with no arguments, so
+          leaving it alone means a bare `nixos-rebuild switch` works.
+
+          Kept as a git checkout rather than a copy so that the revision is a
+          verifiable statement about what the machine should be running:
+          `git -C <path> rev-parse HEAD`.
+        '';
+      };
+
+      autoUpdate = {
+        enable = lib.mkOption {
+          type = lib.types.nullOr lib.types.bool;
+          default = null;
+          description = ''
+            Periodically sync `conf.management.repo` into `localPath` and
+            rebuild from it.
+
+            `null` resolves to whether this machine has an upstream at all: on
+            when `conf.management.repo.url` is set, off when it is null. A fleet
+            machine therefore syncs by virtue of having been given a repository,
+            and a machine with no upstream is quietly left alone.
+
+            Set `false` to opt a machine out while still pointing it at a
+            repository — a development box you rebuild by hand, or one held back
+            from a rollout. Setting `true` without a `repo.url` is an error
+            rather than a no-op, since it asks for something unsatisfiable.
+          '';
+        };
+
+        rollbackOnFailure = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = ''
+            If activating the new configuration fails, return the system to the
+            generation it was running.
+
+            On by default because a half-activated system is what takes a machine
+            out of reach: if the new generation breaks networking or sshd, the
+            machine stops syncing and has no way back. Rolling back keeps it
+            manageable so a later tick can retry.
+
+            The cost is that a rolled-back machine deliberately does not match
+            its checked-out revision, so it must be reported — otherwise it
+            diverges silently forever. Turn this off if you would rather a
+            failure be unmissable than survivable.
+          '';
+        };
+
+        dates = lib.mkOption {
+          type = lib.types.str;
+          default = "04:00";
+          description = "systemd OnCalendar expression for the sync timer.";
+        };
+
+        randomizedDelaySec = lib.mkOption {
+          type = lib.types.int;
+          default = 1800;
+          description = ''
+            Jitter added to each run so a fleet does not converge on the binary
+            cache simultaneously.
+          '';
+        };
+
+        allowReboot = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = ''
+            Reboot after a switch when the new system's kernel or initrd differs
+            from the running one. Off by default: the new userspace is active
+            either way, and an unattended reboot is rarely what you want on a
+            workstation.
+          '';
+        };
+
+        resetLocalChanges = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = ''
+            Hard-reset localPath to the tracked ref before building, discarding
+            local edits.
+
+            On by default, deliberately: it is what makes the checked-out
+            revision an honest description of the machine. With it off, a local
+            edit silently parks the machine on a configuration no revision
+            describes, and the sync quietly stops converging.
+          '';
         };
       };
     };

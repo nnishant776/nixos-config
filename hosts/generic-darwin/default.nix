@@ -6,11 +6,11 @@
 
     host = {
       name = "generic-darwin";
-      adminUser = {
-        name = "admin";
-        fullName = "Administrator";
-        email = "admin@example.com";
-        enableHomeManager = true;
+      users = {
+        admin = {
+          fullName = "Administrator";
+          email = "admin@example.com";
+        };
       };
     };
 

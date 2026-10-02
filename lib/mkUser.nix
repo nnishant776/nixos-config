@@ -9,10 +9,10 @@ let
     , system ? "x86_64-linux"
     , extraModules ? [ ]
     , usersDir ? ../users
-      # Standalone Home-Manager is invoked by the user, on their own machine, so
-      # importing their ~/.config/home-manager/default.nix crosses no privilege
-      # boundary here. The system-level path (modules/user/home-manager.nix)
-      # evaluates as root and defaults this off.
+      # Home Manager is invoked by the user, on their own machine, so importing
+      # their ~/.config/home-manager/default.nix crosses no privilege boundary.
+      # The parameter defaults off in buildUser so that any future system-level
+      # caller — which would evaluate as root — has to opt in deliberately.
     , allowLocalOverride ? true
     }:
     let
@@ -35,11 +35,17 @@ let
   hostUserEntries = { hostConfigs, hostPlatforms }:
     lib.flatten (lib.mapAttrsToList (dirName: hostCfg:
       let
-        allUsers = [ hostCfg.config.conf.host.adminUser ] ++ hostCfg.config.conf.host.extraUsers;
-        enabledUsers = builtins.filter (u: u.enableHomeManager) allUsers;
+        host = hostCfg.config.conf.host;
+        # Only users granted allowHomeManagement. Organisation-managed homes are
+        # activated by the system (modules/user/home-manager.nix) and must not
+        # also be published here, or both generations would fight over the same
+        # home directory. conf.host.enableHomeManager gates the whole host.
+        enabledUsers = lib.filterAttrs
+          (_: u: host.enableHomeManager && u.allowHomeManagement)
+          host.users;
       in
-        map (u: {
-          username = u.name;
+        lib.mapAttrsToList (username: u: {
+          inherit username;
           userCfg = u;
           system = hostPlatforms.${dirName};
           hostName = hostCfg.config.conf.host.name;

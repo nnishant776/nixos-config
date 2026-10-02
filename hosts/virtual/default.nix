@@ -7,12 +7,13 @@
 
     host = {
       name = "virtual";
-      adminUser = {
-        name = "admin";
-        fullName = "Administrator";
-        email = "admin@example.com";
-        privileged = true;
-        initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
+      users = {
+        admin = {
+          fullName = "Administrator";
+          email = "admin@example.com";
+          privileged = true;
+          initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
+        };
       };
     };
 

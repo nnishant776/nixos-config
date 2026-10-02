@@ -1,6 +1,9 @@
-# Canonical user environment module generator.
-# Loaded by both OS-level Home-Manager (modules/user/home-manager.nix)
-# and standalone Home-Manager (lib/mkUser.nix).
+# Canonical user environment module generator, used by lib/mkUser.nix.
+#
+# There is no system-level counterpart: the system does not activate Home
+# Manager, because two generations cannot share one home directory. The user
+# owns their home and activates it themselves; this flake supplies the
+# organisation policy that their configuration merges with.
 #
 # Layers, in the order they are imported:
 #   1. modules/user/           organisation baseline (declares values with mkDefault)

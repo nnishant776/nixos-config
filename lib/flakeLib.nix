@@ -1,9 +1,21 @@
 # Helpers shared by this flake's own modules.
 #
 # Threaded to every module as `flakeLib` via specialArgs / extraSpecialArgs by
-# lib/mkHost.nix, lib/mkUser.nix and modules/user/home-manager.nix.
+# lib/mkHost.nix and lib/mkUser.nix.
 { lib }:
 rec {
+  # Does this configuration own the account itself, as opposed to only its home?
+  #
+  # conf.host.users.<name>.manageAccount is nullOr bool: null resolves by
+  # platform, because accounts come from different places — a NixOS machine
+  # declares them, a Mac gets them from MDM. An explicit value wins.
+  #
+  # Defined here so the NixOS and Darwin modules cannot drift apart on it.
+  accountManaged = platform: user:
+    if user.manageAccount != null
+    then user.manageAccount
+    else platform != "darwin";
+
   # Recursively mark a module's option definitions as lib.mkDefault, so a host
   # (or a per-user module) can override them with a plain assignment instead of
   # colliding with them.

@@ -62,8 +62,12 @@ Adding a machine or standalone user requires no changes to `flake.nix`:
    ```
    Home configurations are keyed `<username>@<host>`; there is no bare
    `<username>` alias. The wrapper resolves the current user and hostname in the
-   shell, and tolerates case differences between `uname -n` and the flake
-   attribute name.
+   shell. Only users granted `allowHomeManagement` have one — for everyone else
+   the organisation's rebuild activates the home, and `home-switch` says so.
+
+   The host directory name, `conf.host.name` and the machine's hostname must all
+   be identical; an assertion enforces it, because `nixos-rebuild` with no
+   arguments resolves `#$(hostname)`.
 
 ### Purity
 
@@ -101,13 +105,74 @@ and log shipping, sudo policy. All of it system-level, all of it in `modules/` a
 `hosts/`, and all of it fair game for compliance assertions.
 
 **User domain** — window manager, shell, theming, editors, personal packages.
-Owned by the user, *not* organisation policy, and not something this flake tries
-to dictate. A user's own configuration lives in their `~/.config/home-manager/`
-and is applied by standalone Home Manager, which they run themselves.
+Not organisation policy, and not something this flake tries to dictate. Where it
+lives depends on who owns the home: in `users/<name>/` for an
+organisation-managed user (tracked and reviewed), or in their own
+`~/.config/home-manager/` for a user granted `allowHomeManagement`.
 
 So `conf.desktop.environments.<name>.enable` decides which environments a host
 *makes available* — enable several to install them all. Nothing here forces which
 one a user must use; they pick a session at the greeter.
+
+#### One owner per home directory
+
+A home directory has exactly one owner, and by default it is the organisation: a
+system rebuild activates the home. Self-management is a per-user grant.
+
+Whoever activates it, the same layers are merged in:
+
+| Layer | Source | Who edits it |
+|---|---|---|
+| baseline | `modules/user/` | the organisation |
+| per-user | `users/<name>/default.nix` | the organisation, reviewed |
+| per-host | `conf.host.*.extraHomeConfig` | the organisation |
+| personal | `~/.config/home-manager/default.nix` | **the user** |
+
+Who *activates* that merged result is one of two states, and never both:
+
+| `enableHomeManager` | `allowHomeManagement` | Owner | `~/.config/home-manager` |
+|---|---|---|---|
+| `true` *(default)* | `false` *(default)* | **organisation** — a system rebuild activates it | **not read** |
+| `true` | `true` | the user, via `home-switch` | merged |
+| `false` | — | nobody (service accounts, out of scope) | not read |
+
+`enableHomeManager` is the global switch: is this home managed at all. Opt out
+for accounts where a managed home is meaningless. `allowHomeManagement` is the
+permission: may this user manage their own. Opt in, per user, as a reviewable
+grant.
+
+The default is therefore an organisation-managed home, and personal
+configuration for such a user goes through review into `users/<name>/`. Granting
+self-management is the alternative when that doesn't fit — it changes who runs
+the activation, not whether policy reaches them.
+
+```bash
+home-switch              # resolves this user, /etc/nixos and this host
+```
+
+The two sets are disjoint **by construction**, because two Home Manager
+generations cannot share a home directory: each activation walks the previous
+generation's manifest and deletes whatever the new one doesn't declare, so an
+org-activated generation and a user-activated one would delete each other's
+files on every rebuild and every switch. Setting
+`allowHomeManagement` without `enableHomeManager` warns, since the grant then
+has nothing to apply to.
+
+Two consequences worth knowing:
+
+- An organisation-managed user's `~/.config/home-manager/default.nix` is ignored
+  **silently**. A rebuild evaluates as root, so reading a user-writable file
+  there would be both a privilege problem and a reproducibility one. Its
+  presence is a useful signal though — it means someone wants either their
+  config reviewed into `users/<name>/` or the grant.
+- Revoking a grant is destructive: the next rebuild activates the organisation's
+  home and the generation diff removes what the user's own generation placed.
+  `backupFileExtension` (tagged with the flake revision) moves conflicting files
+  aside rather than aborting, but the files do move.
+
+Because the flake is checked out at `/etc/nixos`, the organisation policy a user
+merges with is whatever revision the machine is currently synced to — the same
+revision the system was built from.
 
 ### The greeter
 
@@ -166,10 +231,11 @@ A rebuild evaluates as root, so a user-writable file there would get root's read
 access, and the same flake revision would stop producing the same closure on
 every machine. Standalone Home Manager reads it; the system build does not.
 
-`enableHomeManager` therefore decides who owns a user's home directory. Do not
-set it `true` and also have that user run standalone Home Manager: both write the
-same dotfiles and share the same Home Manager profile state, so each activation
-undoes the other's files. Pick one owner per user.
+`allowHomeManagement` therefore decides who owns a user.s home directory, and the
+two paths are kept disjoint in code so the choice cannot be sidestepped: an
+organisation-managed user has no published configuration to activate, and a
+self-managing user is excluded from the system activation. See
+[One owner per home directory](#one-owner-per-home-directory).
 
 #### Organisation policy inside the home directory
 
@@ -226,10 +292,11 @@ ladder — the numbering is reading order only:
 ### Users & Home-Manager
 
 `conf.host.adminUser` (plus optional `conf.host.extraUsers`) drives both the OS
-accounts (`host.nix`) and Home-Manager users (`home-manager.nix`). Users with
-`enableHomeManager = true` get the shared config in `modules/user/`, anything in
-`users/<name>/default.nix`, and their `extraHomeConfig`. Users with
-`enableHomeManager = false` manage their own home with standalone Home Manager.
+accounts (`host.nix`) and Home-Manager users (`home-manager.nix`). Every managed
+user gets the shared config in `modules/user/`, anything in
+`users/<name>/default.nix`, and their `extraHomeConfig`, regardless of who
+activates it — see [One owner per home directory](#one-owner-per-home-directory)
+for `enableHomeManager` and `allowHomeManagement`.
 
 #### Privilege
 
@@ -324,8 +391,60 @@ User submodule fields:
 | `privileged` | bool | `false` | Grants sudo (wheel) + the privilege-adjacent groups for enabled services |
 | `groups` | listOf str | `[ ]` | Extra groups. Privilege-granting groups are rejected here — use `privileged` |
 | `initialHashedPassword` | str | *(hash)* | Initial password — change after install |
-| `enableHomeManager` | bool | `true` | Register this user with Home-Manager |
+| `enableHomeManager` | bool | `true` | Global switch: is this home managed at all |
+| `allowHomeManagement` | bool | `false` | Reviewable grant: may the user manage their own home |
 | `extraHomeConfig` | deferredModule | `{}` | Extra per-user HM configuration |
+
+### `conf.management`
+
+How a machine gets its configuration and keeps it current.
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `management.repo.url` | nullOr str | `null` | Git remote the machine is deployed from. `null` = no upstream |
+| `management.repo.ref` | str | `"main"` | Branch/tag to track — this is the staging mechanism |
+| `management.localPath` | str | `"/etc/nixos"` | Where the checkout lives |
+| `management.autoUpdate.enable` | toggle | `false` | Periodic sync + rebuild |
+| `management.autoUpdate.dates` | str | `"04:00"` | systemd `OnCalendar` |
+| `management.autoUpdate.randomizedDelaySec` | int | `1800` | Jitter, so a fleet doesn't hit the cache at once |
+| `management.autoUpdate.allowReboot` | bool | `false` | Reboot when kernel/initrd changed |
+| `management.autoUpdate.resetLocalChanges` | bool | `true` | Hard-reset the checkout before building |
+
+`os-install` clones `repo.url` into `localPath` and pins it to the revision that
+was installed. The checkout is **git, not a copy of the store path**: a store
+path has no `.git` and is read-only, and it is the revision that makes a
+machine's state a verifiable claim — `git -C /etc/nixos rev-parse HEAD`. Leaving
+`localPath` at its default also means a bare `nixos-rebuild switch` works, since
+that is where it looks when given no arguments.
+
+Installing from a working tree with uncommitted changes is detected: there is no
+revision to pin to, so the checkout is left at the tip of `ref` and the installer
+says so loudly rather than pinning to something that isn't a revision.
+
+#### The sync service
+
+`conf.management.autoUpdate.enable` adds a timer that fetches, resets to the
+tracked ref, builds, and switches. Two details are load-bearing:
+
+**Build and activation are separate steps**, because their failure modes need
+different responses. If the *build* fails, nothing has changed — the running
+system is untouched and there is nothing to roll back; rolling back here would
+downgrade a healthy machine over someone else's bad commit. If *activation*
+fails, the system profile has already moved, and that is the case that rolls
+back. A single `nixos-rebuild switch` cannot tell those apart.
+
+**`resetLocalChanges` defaults on.** With it off, one local edit parks the
+machine on a configuration no revision describes and the sync quietly stops
+converging. On, the checked-out revision is an honest description of the machine,
+and local edits are explicitly temporary.
+
+What it deliberately does *not* do is roll back on a degraded system. One
+pre-existing failed unit would put the machine in a rollback loop on every tick.
+Post-switch state and any failed units are logged instead; a real health gate
+belongs there, comparing failed units against a baseline rather than a constant.
+
+Darwin has no equivalent yet — the service is a systemd timer, gated on
+`conf.platform == "nixos"`.
 
 ### `conf.platform`
 

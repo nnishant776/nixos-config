@@ -6,12 +6,22 @@
 
     host = {
       name = "generic";
-      adminUser = {
-        name = "admin";
-        fullName = "Administrator";
-        email = "admin@example.com";
-        privileged = true;
-        initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
+      users = {
+        admin = {
+          fullName = "Administrator";
+          email = "admin@example.com";
+          privileged = true;
+          initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
+          # Self-managed: this is a personally-administered machine whose live
+          # configuration already lives in ~/.config/home-manager. Without this
+          # grant the system would activate the organisation's home instead and
+          # that configuration would simply be ignored.
+          #
+          # On a fleet machine leave this off — the default — so the home is
+          # organisation-managed and personal configuration goes through review
+          # into users/<name>/.
+          allowHomeManagement = true;
+        };
       };
     };
 

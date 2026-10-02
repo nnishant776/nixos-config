@@ -105,28 +105,81 @@
             fi
           fi
 
-          exec nixos-install --root /mnt --flake "${self}#$host"
+          # set -euo pipefail already aborts here if the install fails, so there
+          # is deliberately no status check after this line: one would be
+          # unreachable.
+          nixos-install --root /mnt --flake "${self}#$host"
+
+          # The configuration is checked out from git rather than copied from
+          # the store path just installed: a store path has no .git and is
+          # read-only, and it is the git revision that makes the machine's
+          # on-disk state verifiable against what it was installed from. The
+          # sync service and attestation both rely on that revision.
+          #
+          # Read in a single eval — each `nix eval` against a host attribute
+          # evaluates that entire NixOS configuration, so asking four times is
+          # four full evaluations on a machine that is still an installer.
+          management="$(nix eval --json "${self}#nixosConfigurations.''${host}.config.conf.management")"
+          repoUrl="$(printf '%s' "$management" | ${pkgs.jq}/bin/jq -r '.repo.url // ""')"
+          repoRef="$(printf '%s' "$management" | ${pkgs.jq}/bin/jq -r '.repo.ref')"
+          localPath="$(printf '%s' "$management" | ${pkgs.jq}/bin/jq -r '.localPath')"
+
+          if [ -z "$repoUrl" ]; then
+            echo "notice: host '$host' declares no upstream repository (conf.management.repo.url is null)" >&2
+            echo "notice: leaving '$localPath' empty" >&2
+            exit 0
+          fi
+
+          ${pkgs.git}/bin/git clone --branch "$repoRef" "$repoUrl" "/mnt''${localPath}"
+
+          # self.rev only — deliberately not self.dirtyRev, which carries a
+          # "-dirty" suffix precisely because it is not a revision anything can
+          # be checked out to. Falling back to it would turn "you installed from
+          # uncommitted work" into a confusing "revision not found in remote".
+          installedRev="${self.rev or ""}"
+
+          if [ -z "$installedRev" ]; then
+            echo "WARNING: installed from a working tree with no commit (uncommitted changes), so there is no revision to pin to" >&2
+            echo "WARNING: '$localPath' is left at the tip of '$repoRef' and may not match the system just installed" >&2
+          else
+            if ! ${pkgs.git}/bin/git -C "/mnt''${localPath}" checkout "$installedRev"; then
+              echo "WARNING: revision '$installedRev' not found in '$repoUrl'; checkout is left at the tip of '$repoRef' and does NOT match the installed system; the machine will converge on the next sync" >&2
+            fi
+          fi
+
+          finalRev="$(${pkgs.git}/bin/git -C "/mnt''${localPath}" rev-parse HEAD)"
+          echo "checkout: path=/mnt''${localPath} ref=$repoRef rev=$finalRev"
         '';
 
+        # Note the absence of --impure: the system configurations evaluate
+        # purely, and passing it here would hide a regression that
+        # `nix run .#check-purity` exists to catch.
+        #
+        # The /etc/os-release check below is a different thing from the one that
+        # was removed from modules/core: this runs *on the machine being
+        # switched*, deciding which rebuild tool to invoke. Inspecting the local
+        # system is exactly right in a shell script and exactly wrong during
+        # evaluation.
         nixFlakeSystemSwitch = pkgs.writeShellScriptBin "system-switch" ''
           set -euo pipefail
 
-          host="''${1:-}"
-          flakePath="''${2:-}"
+          host="''${1:-$(uname -n)}"
+          flakePath="''${2:-/etc/nixos}"
           os="$(uname)"
 
-          if [ -z "$host" ] || [ -z "$flakePath" ]; then
-            echo "usage: system-switch <hostname> <flake path>" >&2
+          if [ ! -e "$flakePath/flake.nix" ]; then
+            echo "system-switch: no flake at $flakePath" >&2
+            echo "usage: system-switch [hostname] [flake path]" >&2
             exit 1
           fi
 
           if [ "$os" = "Darwin" ]; then
-            exec sudo nix run nix-darwin -- switch --flake "$flakePath#$host" --impure
+            exec sudo nix run nix-darwin -- switch --flake "$flakePath#$host"
           else
             if grep -qi "nixos" /etc/os-release > /dev/null 2>&1; then
-              exec sudo nixos-rebuild switch --flake "$flakePath#$host" --impure
+              exec sudo nixos-rebuild switch --flake "$flakePath#$host"
             else
-              exec sudo nix run system-manager -- switch --flake "$flakePath#$host" --impure
+              exec sudo nix run system-manager -- switch --flake "$flakePath#$host"
             fi
           fi
         '';
@@ -161,6 +214,19 @@
                   | tr -d '[]"' | tr ',' '\n')"
 
           if ! printf '%s\n' "$keys" | grep -qxF "$target"; then
+            # A home that the organisation manages has no published
+            # configuration on purpose — the system activates it on rebuild.
+            # Say that, rather than reporting a missing attribute.
+            if nix eval "$flakePath#nixosConfigurations.$host.config.home-manager.users" \
+                 --apply "u: u ? \"$user\"" 2>/dev/null | grep -q true; then
+              echo "home-switch: '$user' has an organisation-managed home on '$host'," >&2
+              echo "  so there is nothing for you to activate — a system rebuild does it." >&2
+              echo "  Personal configuration goes through review into users/$user/." >&2
+              echo "  Self-management is granted per user with" >&2
+              echo "  conf.host.<user>.allowHomeManagement = true." >&2
+              exit 1
+            fi
+
             echo "home-switch: $flakePath declares no home configuration '$target'" >&2
             echo "available:" >&2
             printf '  %s\n' $keys >&2
