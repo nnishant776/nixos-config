@@ -5,7 +5,7 @@
     profile = "developer";
 
     host = {
-      name = "GENERIC";
+      name = "generic";
       adminUser = {
         name = "admin";
         fullName = "Administrator";

@@ -56,12 +56,40 @@ Adding a machine or standalone user requires no changes to `flake.nix`:
    ```
 3. **Evaluate/switch Standalone Home Manager**:
    ```bash
-   home-manager switch --flake .#<username>         --impure   # this machine
-   home-manager switch --flake .#<username>@<host>  --impure   # explicit host
+   home-switch                                              # this user, /etc/nixos, this host
+   home-switch <username> <flake path> <host>               # explicit
+   home-manager switch --flake <path>#<user>@<host> --impure # without the wrapper
    ```
-   `--impure` is required: resolving the bare `<username>` reads the running
-   machine's hostname. The `<username>@<host>` form skips that lookup and is the
-   one to use off-machine or on macOS, where `/etc/hostname` does not exist.
+   Home configurations are keyed `<username>@<host>`; there is no bare
+   `<username>` alias. The wrapper resolves the current user and hostname in the
+   shell, and tolerates case differences between `uname -n` and the flake
+   attribute name.
+
+### Purity
+
+The system outputs — every `nixosConfigurations.*` and
+`darwinConfigurations.*` — **evaluate without `--impure`**. That is what lets an
+automated rebuild be reproduced and verified from a git revision alone, so it is
+a property worth protecting:
+
+```bash
+nix run .#check-purity    # evaluates every system output with no --impure
+```
+
+Two rules keep it true:
+
+- **Never inspect the evaluating machine.** `builtins.readFile "/etc/os-release"`
+  and friends describe the builder, not the target — building a NixOS closure
+  from a Mac or a CI runner would read the wrong system's identity. Use
+  `pkgs.stdenv.hostPlatform.isLinux`/`isDarwin` for platform differences and
+  `conf.platform` for deployment-kind differences.
+- **Machine-specific lookups belong in the wrapper**, not in evaluation — the
+  current hostname and user are resolved by `home-switch` in the shell.
+
+`homeConfigurations` are the deliberate exception and **do** need `--impure`:
+they import the user's own `~/.config/home-manager/default.nix`, which lives
+outside the flake. That is correct — a user's personal configuration is not part
+of the organisation's reproducible closure, and they evaluate it themselves.
 
 ### Two domains
 
@@ -202,9 +230,77 @@ accounts (`host.nix`) and Home-Manager users (`home-manager.nix`). Users with
 `enableHomeManager = true` get the shared config in `modules/user/`, anything in
 `users/<name>/default.nix`, and their `extraHomeConfig`. Users with
 `enableHomeManager = false` manage their own home with standalone Home Manager.
-Group membership is granted
-automatically: `video`/`input` (desktop), `docker`/`podman` (containers),
-`libvirtd`/`kvm` (VMs), `networkmanager` (networking).
+
+#### Privilege
+
+Administrative access is one flag: `privileged`. It grants `wheel` (sudo) plus
+the privilege-adjacent groups for whichever services the host enables —
+`networkmanager`, `docker`/`podman`, `libvirtd`/`kvm`. It is **off by default**,
+and `sudo` is reachable only through `wheel` (`security.sudo.execWheelOnly`).
+
+Those groups are grouped together deliberately, because each is root or
+near-root. Membership of `docker` alone is equivalent to root — a container can
+bind-mount the host filesystem — and it leaves no entry in `sudoers` to audit.
+So they follow from `privileged` rather than from a service being enabled, which
+is how this configuration previously handed *every* user on a `workstation` or
+`developer` profile host root-equivalent access without saying so anywhere.
+
+`groups` is for non-privilege extras only. Listing any of wheel, docker, podman,
+libvirtd, kvm or networkmanager there fails evaluation with a message telling you
+to set `privileged` instead. A second assertion checks the *merged*
+`users.users.<name>.extraGroups`, so a grant arriving from any other module is
+caught too.
+
+Non-privileged users still get `video`/`input` when the desktop is enabled — seat
+access for a graphical session is not a privilege question. Nor is `kvm`: see
+below.
+
+#### Virtual machines without privilege
+
+`kvm` is deliberately *not* treated as a privilege group. systemd's own udev rule
+ships `/dev/kvm` world-accessible —
+
+```
+KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
+```
+
+— because KVM is designed to be safe to expose to unprivileged users, and the
+group is empty on a stock NixOS system. It is still granted to every user when
+`conf.systemServices.virtualisation.enable` is set, purely as insurance should
+upstream ever tighten that mode back to `0660`.
+
+So a non-privileged user can run hardware-accelerated VMs through libvirt
+**session** mode (`qemu:///session`, which virt-manager speaks), plain `qemu`, or
+`nixos-rebuild build-vm`. What they give up is *system*-mode libvirt: bridged
+networking (a VM with its own LAN address), PCI/USB passthrough, VMs that start
+at boot, and host-level storage pools. Session mode gets user-mode networking
+instead, which is fine for outbound development work.
+
+The point of the distinction: "I need to run a VM" is **not** a reason to grant
+`libvirtd`. That group lets a user define a VM with host disk passthrough and so
+read any file on the host as root — it is in the privilege list for the same
+reason `docker` is.
+
+#### Network access without the `networkmanager` group
+
+NixOS gives the `networkmanager` group a blanket polkit `YES` for every
+`org.freedesktop.NetworkManager.*` action — a prefix match, not an allowlist, so
+it also covers whatever a future NetworkManager release adds. Among the 17
+actions today, that mixes "join a café Wi-Fi" with *"Modify network connections
+for all users"*, *"Modify persistent global DNS configuration"*, *"Modify
+persistent system hostname"* and Wi-Fi hotspot sharing.
+
+Non-privileged users therefore land in a `network-users` group instead, which
+`host.nix` grants a narrow polkit allowlist: enable/disable networking, Wi-Fi and
+WWAN, scan, activate connections, sleep/wake, statistics, connectivity check, and
+`settings.modify.own`. The system-scope actions are left requiring admin
+authentication.
+
+One limit worth knowing: `settings.modify.own` is unavoidable if users are to
+join networks at all, and a connection a user owns can carry its own
+`ipv4.dns`. Pinning the resolver is a network-layer job —
+`networking.networkmanager.dns` plus firewall rules — not something polkit can
+do.
 
 ## Option Reference (`conf.*`)
 
@@ -225,10 +321,24 @@ User submodule fields:
 | `name` | str | `"admin"` | Username |
 | `fullName` | str | `"Administrator"` | Full name (used for git) |
 | `email` | str | `""` | Git email (falls back to `<name>@localhost`) |
-| `groups` | listOf str | `[ "wheel" ]` | Extra groups (platform groups are auto-added) |
+| `privileged` | bool | `false` | Grants sudo (wheel) + the privilege-adjacent groups for enabled services |
+| `groups` | listOf str | `[ ]` | Extra groups. Privilege-granting groups are rejected here — use `privileged` |
 | `initialHashedPassword` | str | *(hash)* | Initial password — change after install |
 | `enableHomeManager` | bool | `true` | Register this user with Home-Manager |
 | `extraHomeConfig` | deferredModule | `{}` | Extra per-user HM configuration |
+
+### `conf.platform`
+
+One of `nixos` · `darwin` · `system-manager`. **Set by `lib/mkHost.nix`, not by
+hosts** — that factory already decides between `nixosSystem` and `darwinSystem`,
+so it declares the answer rather than anything sniffing for it. No default, so a
+missing value fails loudly instead of silently assuming.
+
+It exists because some differences belong to the *deployment* rather than the
+platform, and so cannot be expressed with `pkgs.stdenv.hostPlatform.isLinux`:
+NixOS and Ubuntu are both Linux, but on NixOS nix is part of the system closure
+while elsewhere this configuration manages an externally installed nix. See
+[Purity](#purity) for the rule about which to reach for.
 
 ### `conf.profile`
 

@@ -169,6 +169,30 @@ in {
       };
     };
 
+    # ── Deployment Target ──
+    platform = lib.mkOption {
+      type = lib.types.enum [ "nixos" "darwin" "system-manager" ];
+      description = ''
+        Which kind of system this configuration is deployed to. Set by
+        lib/mkHost.nix, which already decides between nixosSystem and
+        darwinSystem — hosts do not set it.
+
+        This exists because some differences are a property of the *deployment*
+        rather than of the platform, and so cannot be expressed with
+        `pkgs.stdenv.hostPlatform.isLinux`/`isDarwin`: NixOS and Ubuntu are both
+        Linux, but on NixOS nix belongs to the system closure while on Ubuntu
+        this configuration manages an externally installed nix.
+
+        Use `pkgs.stdenv.hostPlatform.*` for platform differences and this for
+        deployment-kind differences. Never inspect the evaluating machine —
+        reading /etc/os-release describes the builder, not the target, and makes
+        every build impure.
+
+        No default on purpose: a missing value should fail loudly rather than
+        silently assume a deployment kind.
+      '';
+    };
+
     # ── System Profile Preset ──
     profile = lib.mkOption {
       type = lib.types.enum [

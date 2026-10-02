@@ -25,7 +25,7 @@
   # conf.host — machine identity / locale / users
   # ───────────────────────────────────────────────────────────────────────────
   conf.host = {
-    name = "reference";
+    name = "example";
     timezone = "Asia/Kolkata";
     locale = "en_IN";
 

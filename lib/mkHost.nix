@@ -25,8 +25,30 @@ let
 
   flakeLib = import ./flakeLib.nix { inherit lib; };
 
+  # The directory name under hosts/ is the machine's identity, so it has to be
+  # exactly the hostname. `nixos-rebuild switch` with no arguments resolves
+  # #$(hostname), and home configurations are keyed <user>@<host-dir>, so a
+  # disagreement makes both lookups miss — on a fleet machine rebuilding itself
+  # from /etc/nixos that is a silent failure to update. Enforced rather than
+  # accommodated.
+  hostIdentity = { config, ... }: {
+    assertions = [
+      {
+        assertion = config.conf.host.name == hostName;
+        message =
+          "hosts/${hostName} declares conf.host.name = \"${config.conf.host.name}\"."
+          + " The host directory name and conf.host.name must be identical:"
+          + " `nixos-rebuild switch` resolves #$(hostname) and home"
+          + " configurations are keyed <user>@${hostName}."
+          + " Either rename the directory to hosts/${config.conf.host.name}"
+          + " or set conf.host.name = \"${hostName}\".";
+      }
+    ];
+  };
+
   commonModules = [
     (hostDir + "/default.nix")
+    hostIdentity
     ../modules/core
     ../modules/conf
     ../modules/user/home-manager.nix
@@ -35,7 +57,12 @@ in
   if isLinux then
     inputs.nixpkgs.lib.nixosSystem {
       modules = commonModules ++ [
-        { system.stateVersion = "26.05"; }
+        {
+          system.stateVersion = "26.05";
+          # Declared here rather than sniffed from the evaluating machine: this
+          # branch *is* the decision that the target is NixOS.
+          conf.platform = "nixos";
+        }
       ]
       ++ hardwareCfgPath
       ++ lib.optionals (diskoCfgPath != null) [ diskoCfgPath ]
@@ -52,6 +79,7 @@ in
   else if isDarwin then
     inputs.nix-darwin.lib.darwinSystem {
       modules = commonModules ++ [
+        { conf.platform = "darwin"; }
         ../modules/system/darwin
         inputs.home-manager.darwinModules.home-manager
       ];

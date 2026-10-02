@@ -5,7 +5,7 @@
     profile = "developer";
 
     host = {
-      name = "GENERIC-DARWIN";
+      name = "generic-darwin";
       adminUser = {
         name = "admin";
         fullName = "Administrator";

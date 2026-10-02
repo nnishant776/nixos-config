@@ -31,19 +31,6 @@ let
       ];
     };
 
-  # Hostname of the machine doing the evaluation (impure: needs --impure).
-  # Absent on Darwin, so this is best-effort — it only decides which host's users
-  # get the bare `<username>` alias. The `<username>@<host>` keys always exist,
-  # so a failed lookup is never fatal.
-  currentHost =
-    let
-      fromFile =
-        if builtins.pathExists "/etc/hostname"
-        then lib.trim (builtins.readFile "/etc/hostname")
-        else "";
-    in
-      if fromFile != "" then fromFile else builtins.getEnv "HOSTNAME";
-
   # Every home-manager-enabled user declared by any host, as flat entries.
   hostUserEntries = { hostConfigs, hostPlatforms }:
     lib.flatten (lib.mapAttrsToList (dirName: hostCfg:
@@ -69,23 +56,24 @@ let
       # here is standalone Home-Manager, run by the user on their own machine.
     };
 
-  # Users declared by host configurations.
+  # Users declared by host configurations, keyed `<username>@<host-dir>`.
   #
-  # Two keys per user:
-  #   <username>@<host-dir>  always present, host-explicit, no hostname lookup
-  #   <username>             only for hosts matching the running machine
+  #   home-manager switch --flake /etc/nixos#<username>@<host>
   #
-  #   home-manager switch --flake .#<username> --impure
-  #   home-manager switch --flake .#<username>@<host> --impure
+  # There is deliberately no bare `<username>` alias. Resolving one meant
+  # reading /etc/hostname at evaluation time, which made these outputs impure,
+  # did not work on Darwin (no such file), and failed badly: in pure mode the
+  # alias did not error, it silently did not exist, so `--flake .#admin` came
+  # back "does not provide attribute" with nothing to explain why.
+  #
+  # The hostname is a property of the machine running the command, so the
+  # `home-switch` wrapper resolves it in the shell instead.
   discoverHostUsers = { hostConfigs, hostPlatforms, usersDir ? ../users }:
     let
       entries = hostUserEntries { inherit hostConfigs hostPlatforms; };
-      localEntries = builtins.filter (e:
-        e.hostName == currentHost || e.dirName == currentHost
-      ) entries;
       keyed = key: es: lib.listToAttrs (map (e: lib.nameValuePair (key e) (entryToUser usersDir e)) es);
     in
-      (keyed (e: "${e.username}@${e.dirName}") entries) // (keyed (e: e.username) localEntries);
+      keyed (e: "${e.username}@${e.dirName}") entries;
 
   # Standalone users defined in ./users/<username>/, for users that no host
   # declares. A directory under ./users/ implicitly enables home-manager.

@@ -6,7 +6,7 @@
     profile = "workstation";
 
     host = {
-      name = "GENERIC";
+      name = "virtual";
       adminUser = {
         name = "admin";
         fullName = "Administrator";

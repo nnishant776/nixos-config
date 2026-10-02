@@ -131,18 +131,114 @@
           fi
         '';
 
+        # Resolves the two things that are properties of *this machine* rather
+        # than of the flake: which user is switching, and which host they are
+        # on. Both used to be evaluation-time lookups, which made the
+        # homeConfigurations outputs impure and broke on Darwin.
+        #
+        # --impure is still required here, and only here: the user's own
+        # ~/.config/home-manager/default.nix lives outside the flake, so their
+        # home configuration cannot be reproduced from the flake alone. The
+        # system configurations evaluate purely, which is what lets a rebuild be
+        # verified against a git revision.
         nixFlakeHomeSwitch = pkgs.writeShellScriptBin "home-switch" ''
           set -euo pipefail
 
-          user="''${1:-}"
-          flakePath="''${2:-}"
+          user="''${1:-$(id -un)}"
+          flakePath="''${2:-/etc/nixos}"
+          host="''${3:-$(uname -n)}"
 
-          if [ -z "$user" ] || [ -z "$flakePath" ]; then
-            echo "usage: home-switch <username> <flake path>" >&2
+          if [ ! -e "$flakePath/flake.nix" ]; then
+            echo "home-switch: no flake at $flakePath" >&2
+            echo "usage: home-switch [username] [flake path] [host]" >&2
             exit 1
           fi
 
-          exec nix run home-manager -- switch --flake "$flakePath#$user" --impure
+          target="$user@$host"
+
+          keys="$(nix eval --impure --json "$flakePath#homeConfigurations" \
+                    --apply builtins.attrNames 2>/dev/null \
+                  | tr -d '[]"' | tr ',' '\n')"
+
+          if ! printf '%s\n' "$keys" | grep -qxF "$target"; then
+            echo "home-switch: $flakePath declares no home configuration '$target'" >&2
+            echo "available:" >&2
+            printf '  %s\n' $keys >&2
+            exit 1
+          fi
+
+          exec nix run home-manager -- switch --flake "$flakePath#$target" --impure
+        '';
+
+        # Guards against regressing the purity of the system-level flake
+        # outputs (nixosConfigurations / darwinConfigurations). A single
+        # builtins.readFile or similar impure read in a shared module is
+        # enough to make every host's evaluation require --impure again,
+        # which silently breaks automated rebuilds. This never passes
+        # --impure itself: its entire purpose is to fail when purity is
+        # lost.
+        checkPurityScript = pkgs.writeShellScriptBin "check-purity" ''
+          set -euo pipefail
+
+          flakePath="''${1:-.}"
+
+          failures=0
+          checked=0
+
+          for outputAttr in nixosConfigurations darwinConfigurations; do
+            # Enumeration failing and the output simply being absent are
+            # different things: a Linux-only configuration legitimately has no
+            # darwinConfigurations, and reporting that as a failure — silently,
+            # which is what swallowing stderr here would do — makes the guard
+            # untrustworthy.
+            # stdout only: nix writes warnings such as "Git tree is dirty" to
+            # stderr, and folding those into this value turns each word of the
+            # warning into a phantom host name. On failure the command is
+            # re-run to capture the diagnostic.
+            if ! enumeration="$(nix eval --json "''${flakePath}#''${outputAttr}" --apply builtins.attrNames 2>/dev/null)"; then
+              enumerationError="$(nix eval --json "''${flakePath}#''${outputAttr}" --apply builtins.attrNames 2>&1 || true)"
+              case "''${enumerationError}" in
+                *"does not provide attribute"*)
+                  echo "SKIP ''${outputAttr} (not present in ''${flakePath})"
+                  ;;
+                *)
+                  echo "FAIL ''${outputAttr} (could not enumerate)"
+                  echo "''${enumerationError}" >&2
+                  failures=$((failures + 1))
+                  ;;
+              esac
+              continue
+            fi
+
+            names="$(printf '%s' "''${enumeration}" | tr -d '[]"' | tr ',' '\n')"
+
+            for name in ''${names}; do
+              if [ -n "''${name}" ]; then
+                target="''${outputAttr}.''${name}.config.system.build.toplevel.drvPath"
+                checked=$((checked + 1))
+                if output="$(nix eval --raw "''${flakePath}#''${target}" 2>&1)"; then
+                  echo "PASS ''${outputAttr}.''${name}"
+                else
+                  echo "FAIL ''${outputAttr}.''${name}"
+                  echo "''${output}" >&2
+                  failures=$((failures + 1))
+                fi
+              fi
+            done
+          done
+
+          if [ "''${failures}" -gt 0 ]; then
+            echo "check-purity: ''${failures} target(s) failed to evaluate purely" >&2
+            exit 1
+          fi
+
+          # A guard that checked nothing has not passed.
+          if [ "''${checked}" -eq 0 ]; then
+            echo "check-purity: found no system outputs to check in ''${flakePath}" >&2
+            exit 1
+          fi
+
+          echo "check-purity: all ''${checked} system output(s) evaluate purely"
         '';
 
       in {
@@ -157,6 +253,10 @@
         home-switch = {
           type = "app";
           program = "${nixFlakeHomeSwitch}/bin/home-switch";
+        };
+        check-purity = {
+          type = "app";
+          program = "${checkPurityScript}/bin/check-purity";
         };
       })
     (lib.groupBy (p: p) (lib.attrValues (linuxHosts // darwinHosts)));
