@@ -6,7 +6,11 @@ let
 
   mkUser =
     { username
-    , system ? "x86_64-linux"
+      # The host's own package set, which every caller has: a home configuration
+      # is only ever published for a user some host declares. Taking it rather
+      # than instantiating nixpkgs again keeps a user's home on exactly the
+      # packages, overlays and nixpkgs configuration of the machine it runs on.
+    , pkgs
     , extraModules ? [ ]
     , usersDir ? ../users
       # Safe here since Home Manager is invoked by the user on their own
@@ -14,12 +18,6 @@ let
       # has to opt in deliberately.
     , allowLocalOverride ? true
     }:
-    let
-      pkgs = import inputs.nixpkgs {
-        inherit system;
-        config.allowUnfree = true;
-      };
-    in
     inputs.home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
       extraSpecialArgs = { inherit inputs flakeLib; };
@@ -30,8 +28,8 @@ let
       ];
     };
 
-  # Every home-manager-enabled user declared by any host, as flat entries.
-  hostUserEntries = { hostConfigs, hostPlatforms }:
+  # Every user whose home they manage themselves, across all hosts.
+  hostUserEntries = { hostConfigs }:
     lib.flatten (lib.mapAttrsToList (dirName: hostCfg:
       let
         host = hostCfg.config.conf.host;
@@ -43,57 +41,32 @@ let
           host.users;
       in
         lib.mapAttrsToList (username: u: {
-          inherit username;
+          inherit username dirName;
           userCfg = u;
-          system = hostPlatforms.${dirName};
-          hostName = hostCfg.config.conf.host.name;
-          inherit dirName;
+          pkgs = hostCfg.pkgs;
         }) enabledUsers
     ) hostConfigs);
 
   entryToUser = usersDir: e:
     mkUser {
       inherit usersDir;
-      inherit (e) username system;
+      inherit (e) username pkgs;
       extraModules = [ e.userCfg.extraHomeConfig ];
-      # allowLocalOverride stays at mkUser's default of true: this is
-      # standalone Home Manager, run by the user on their own machine.
     };
 
-  # Users declared by host configurations, keyed `<username>@<host-dir>`:
+  # Keyed `<username>@<host-dir>`:
   #
   #   home-manager switch --flake /etc/nixos#<username>@<host>
   #
   # There is deliberately no bare `<username>` alias; the hostname is a
   # property of the machine running the command, so the `home-switch` wrapper
   # resolves it in the shell instead.
-  discoverHostUsers = { hostConfigs, hostPlatforms, usersDir ? ../users }:
-    let
-      entries = hostUserEntries { inherit hostConfigs hostPlatforms; };
-      keyed = key: es: lib.listToAttrs (map (e: lib.nameValuePair (key e) (entryToUser usersDir e)) es);
-    in
-      keyed (e: "${e.username}@${e.dirName}") entries;
-
-  # Standalone users defined in ./users/<username>/, for users that no host
-  # declares. A directory under ./users/ implicitly enables home-manager.
-  # The module itself is imported by lib/buildUser.nix, which both entry points
-  # share, so nothing needs passing through here.
-  discoverStandaloneUsers = { usersDir ? ../users }:
-    let
-      userNames =
-        if builtins.pathExists usersDir
-        then builtins.attrNames (lib.filterAttrs (_: t: t == "directory") (builtins.readDir usersDir))
-        else [ ];
-    in
-      lib.genAttrs userNames (username: mkUser { inherit username usersDir; });
-
-  # Host-declared users win on name collision: their entry carries the right
-  # system and extraHomeConfig, and users/<name>/ is applied to them anyway.
-  mkHomeConfigurations = { hostConfigs, hostPlatforms, usersDir ? ../users }:
-    (discoverStandaloneUsers { inherit usersDir; })
-    // (discoverHostUsers { inherit hostConfigs hostPlatforms usersDir; });
+  mkHomeConfigurations = { hostConfigs, usersDir ? ../users }:
+    lib.listToAttrs (map
+      (e: lib.nameValuePair "${e.username}@${e.dirName}" (entryToUser usersDir e))
+      (hostUserEntries { inherit hostConfigs; }));
 
 in {
-  inherit mkUser discoverHostUsers discoverStandaloneUsers mkHomeConfigurations;
+  inherit mkUser mkHomeConfigurations;
   __functor = self: self.mkUser;
 }

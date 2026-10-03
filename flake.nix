@@ -67,7 +67,6 @@
     darwinConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) darwinHosts;
 
     homeConfigurations = mkUser.mkHomeConfigurations {
-      inherit hostPlatforms;
       hostConfigs = nixosConfigurations // darwinConfigurations;
       usersDir = ./users;
     };
