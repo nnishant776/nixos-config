@@ -225,7 +225,23 @@ in {
         enable = lib.mkEnableOption "Enable LD libraries linkage";
         libraries = lib.mkOption {
           type = lib.types.listOf lib.types.package;
-          default = (import ./default-ld-libs.nix);
+          default = [ ];
+          description = ''
+            Shared libraries exported to nix-ld, for running downloaded
+            binaries that expect a conventional filesystem. Replaces the
+            curated default set in modules/conf/default-ld-libs.nix. Leave it
+            empty to keep that set and use `extraLibraries` to add to it.
+          '';
+        };
+        extraLibraries = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = [ ];
+          description = ''
+            Shared libraries appended to whichever set `libraries` resolves to,
+            so the curated default is kept. The development, graphics,
+            multimedia and virtualisation groups contribute their own
+            `nix-ldLibraries` on top of this.
+          '';
         };
       };
     };

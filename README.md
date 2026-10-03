@@ -86,7 +86,8 @@ nix eval .#nixosConfigurations.<host>.config.conf.systemServices.graphics.vendor
 | `host.users` | attrsOf user | `{}` | Interactive accounts, keyed by username |
 | `host.enableHomeManager` | bool | `true` | Whether any home on this machine is managed |
 | `host.ldLibraries.enable` | toggle | `false` | Export shared libraries to nix-ld |
-| `host.ldLibraries.libraries` | listOf package | *(default set)* | Libraries to export |
+| `host.ldLibraries.libraries` | listOf package | `[]` | **Replaces** the curated default set |
+| `host.ldLibraries.extraLibraries` | listOf package | `[]` | **Appends** to the default set |
 
 Each entry in `conf.host.users` takes these fields:
 
