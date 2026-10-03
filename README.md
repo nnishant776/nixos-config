@@ -107,7 +107,7 @@ Each entry in `conf.host.users` takes these fields:
 A user's home configuration is assembled from the baseline in `modules/user/`,
 anything in `users/<username>/default.nix`, their `extraHomeConfig`, and — only
 for a user with `allowHomeManagement` — their own
-`~/.config/home-manager/default.nix`.
+`~/.config/home-manager/home.nix`.
 
 ### `conf.management`
 
@@ -279,7 +279,7 @@ that `nixos-rebuild` with no arguments resolves `#$(hostname)`.
 
 **A home has exactly one owner.** By default the organisation owns it and a
 system rebuild activates it, in which case the user's own
-`~/.config/home-manager/default.nix` is not read at all — silently. Personal
+`~/.config/home-manager/home.nix` is not read at all — silently. Personal
 configuration for such a user belongs in `users/<username>/`. Granting
 `allowHomeManagement` moves ownership to the user, who then activates it with
 `home-switch`; the system stops doing so. Do not try to arrange both: two Home

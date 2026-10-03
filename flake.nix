@@ -167,7 +167,7 @@
 
         # Resolves the current user and host in the shell, so that the flake
         # outputs stay pure. --impure is needed here, and only here, because a
-        # user's own ~/.config/home-manager/default.nix lives outside the flake.
+        # user's own ~/.config/home-manager/home.nix lives outside the flake.
         nixFlakeHomeSwitch = pkgs.writeShellScriptBin "home-switch" ''
           set -euo pipefail
 

@@ -90,7 +90,7 @@ let
           it.
 
           Off by default, meaning a system rebuild activates the home and the
-          user's own `~/.config/home-manager/default.nix` is not read at all.
+          user's own `~/.config/home-manager/home.nix` is not read at all.
           Personal configuration for such a user belongs in `users/<name>/`.
 
           Granting it stops the system activating that home and publishes

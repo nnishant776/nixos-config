@@ -11,7 +11,7 @@
 , username
 , extraModules ? [ ]
 , usersDir ? ../users
-  # Enables importing ~/.config/home-manager/default.nix. Only for standalone
+  # Enables importing ~/.config/home-manager/home.nix. Only for standalone
   # Home Manager (lib/mkUser.nix); must stay off for anything the system
   # evaluates, since a rebuild runs as root and the file belongs to the user.
 , allowLocalOverride ? false
@@ -26,7 +26,7 @@ let
   orgConfig = usersDir + "/${username}/default.nix";
 
   # Machine-local config owned by the user, outside the flake.
-  localConfig = homeDir + "/.config/home-manager/default.nix";
+  localConfig = homeDir + "/.config/home-manager/home.nix";
 in {
   imports =
     [ ../modules/user/default.nix ]
