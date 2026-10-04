@@ -433,6 +433,23 @@ configuration for such a user belongs in `users/<username>/`. Setting
 Manager generations over one home directory remove each other's files on every
 activation.
 
+**A self-managed home that falls behind is flagged loudly.** Every home
+generation carries the flake revision it was built from
+(`~/.config/org/revision`), and the system carries its own in
+`/etc/org/revision`. After every system switch, at every graphical login and
+every 30 minutes during a session, a user service compares the two for each user with `selfManagedHome`, reading the
+active generation in the Nix store rather than the home directory. A mismatch
+logs a line to the user journal and raises a critical notification telling them
+to run `home-manager switch --flake /etc/nixos --impure`. It goes through the
+standard `org.freedesktop.Notifications` interface, so GNOME, Hyprland shells,
+mako, swaync and any other spec-compliant daemon show it. It is made persistent
+by spec-level means only — no expiry, critical urgency and the `resident` hint —
+and a repeat check replaces the existing notification instead of stacking a
+second one. Whether a dismissed notification is kept in a history panel is the
+daemon's choice.
+Organisation-managed homes are skipped, since the rebuild already activated
+them. This is a nudge, not enforcement: a user with sudo can mask the unit.
+
 **Revoking `selfManagedHome` is destructive.** The next rebuild activates the
 organisation's home, and files the user's own generation placed are removed.
 Conflicting files are moved aside rather than deleted, with a suffix naming the

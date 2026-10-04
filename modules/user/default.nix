@@ -8,6 +8,7 @@
     ./packages.nix
     ./shell.nix
     ./git.nix
+    ./revision.nix
   ];
 
   news.display = lib.mkDefault "silent";
