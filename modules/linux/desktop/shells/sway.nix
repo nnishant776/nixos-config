@@ -10,7 +10,7 @@ in {
       };
     };
 
-    # The greeter lives in ../session.nix.
+    # The greeter lives in ../greeter/.
 
     environment.systemPackages = with pkgs; [
       # App launchers

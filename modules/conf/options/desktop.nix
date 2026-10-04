@@ -22,6 +22,17 @@ in {
       sway.enable = lib.mkEnableOption "the Sway desktop environment";
     };
 
+    greeter.wallpaper = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      example = lib.literalExpression "./wallpaper.jpg";
+      description = ''
+        Background image for the ReGreet login screen, scaled to cover the
+        screen. The file is copied into the store. ReGreet cannot show user
+        avatars, so there is no option for them.
+      '';
+    };
+
     packages = packageList "Replaces the curated default set of desktop applications.";
     extraPackages = packageList "Appended to whichever set `packages` resolves to.";
 

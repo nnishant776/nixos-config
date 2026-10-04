@@ -9,7 +9,7 @@ in {
     };
 
     # This module configures the DMS shell only. The login screen is regreet,
-    # shared by every environment (../../session.nix) — the matching
+    # shared by every environment (../../greeter/) — the matching
     # dms-greeter is deliberately not used.
   };
 }

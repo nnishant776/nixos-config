@@ -3,7 +3,7 @@ let
   isGnome = config.conf.desktop.enable && config.conf.desktop.environments.gnome.enable;
 in {
   config = lib.mkIf isGnome {
-    # The greeter lives in ../session.nix.
+    # The greeter lives in ../greeter/.
     services.desktopManager.gnome.enable = true;
 
     environment.systemPackages = with pkgs; [

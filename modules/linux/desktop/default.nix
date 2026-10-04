@@ -1,7 +1,7 @@
 { ... }: {
   imports = [
     ./shells
-    ./session.nix
+    ./greeter
     ./portals.nix
     ./audio.nix
     ./services.nix

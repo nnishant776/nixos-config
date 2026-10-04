@@ -224,6 +224,7 @@ for example in a `network.nix`.
 | `desktop.environments.hyprland.enable` | toggle | `false` | Make Hyprland available |
 | `desktop.environments.hyprland.shell` | enum: `none`/`caelestia`/`noctalia`/`dms` | `"none"` | Desktop shell on Hyprland |
 | `desktop.environments.sway.enable` | toggle | `false` | Make Sway available |
+| `desktop.greeter.wallpaper` | nullOr path | `null` | Background image for the login screen |
 | `desktop.packages` | listOf package | `[]` | **Replaces** the default desktop application set |
 | `desktop.extraPackages` | listOf package | `[]` | **Appends** to the desktop application set |
 | `desktop.fonts.packages` | listOf package | `[]` | **Replaces** the curated font set |
@@ -239,9 +240,15 @@ greeter. Enabling the desktop also implies multimedia, graphics, power
 management and flatpak, weakly, so a host can still turn any of them off.
 
 The greeter is ReGreet running under `cage`, configured for every host with a
-desktop. It lists whichever sessions the host installs. Customisation goes
-through the upstream options — `programs.regreet.settings`, `extraCss`,
-`cageArgs`, and the theme, icon theme, cursor theme and font settings.
+desktop (`modules/linux/desktop/greeter/`). It lists whichever sessions the
+host installs. `desktop.greeter.wallpaper` sets its background, scaled to
+cover the screen; the file is copied into the store, so a few megabytes in the
+host directory is the cost. Everything else goes through the upstream options —
+`programs.regreet.settings`, `extraCss`, `cageArgs`, and the theme, icon theme,
+cursor theme and font settings. ReGreet does not display user avatars: it reads
+only names and shells from AccountsService and has no icon widget, so avatars a
+user sets in GNOME appear on GNOME's lock screen and user switcher, not at
+login.
 
 ### `conf.development`
 

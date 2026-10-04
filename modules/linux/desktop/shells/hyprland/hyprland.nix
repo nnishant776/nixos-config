@@ -31,7 +31,7 @@ in {
       };
     };
 
-    # The greeter lives in ../../session.nix.
+    # The greeter lives in ../../greeter/.
 
     systemd.user.services.hyprpolkitagent = lib.mkIf (cfg.environments.hyprland.shell == "none") {
       description = "Hyprland Polkit Authentication Agent";

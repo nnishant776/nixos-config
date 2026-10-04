@@ -48,7 +48,7 @@ in {
         message =
           "conf.desktop: a second display manager is enabled alongside regreet,"
           + " and they will race for the seat. regreet is the only greeter this"
-          + " flake configures (modules/linux/desktop/session.nix);"
+          + " flake configures (modules/linux/desktop/greeter/regreet.nix);"
           + " environment modules must not enable one of their own.";
       }
     ];
