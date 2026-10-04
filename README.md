@@ -3,7 +3,10 @@
 A multi-platform configuration flake for NixOS, macOS and Home Manager
 environments. Machines are declared under `hosts/`, per-user configuration under
 `users/`, and behaviour is driven by the `conf.*` option tree. A machine's
-[role](#roles) sets defaults that any host can override.
+[role](#roles) sets defaults that any host can override. The `conf.*` option tree is a
+generalised group of simple toggles for most common config recipes that can be applied
+on hosts without hardcoding. It is also toggleable which helps move more of the logic to
+a common configuration module rather than being per host.
 
 ## Repository Layout
 
