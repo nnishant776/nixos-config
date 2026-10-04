@@ -109,13 +109,13 @@
           # Clone the configuration so that the machine has a git revision
           # describing what it runs. Read in one eval, since each `nix eval`
           # against a host attribute evaluates that whole configuration.
-          management="$(nix eval --json "${self}#nixosConfigurations.''${host}.config.conf.management")"
+          management="$(nix eval --json "${self}#nixosConfigurations.''${host}.config.conf.fleet")"
           repoUrl="$(printf '%s' "$management" | ${pkgs.jq}/bin/jq -r '.repo.url // ""')"
           repoRef="$(printf '%s' "$management" | ${pkgs.jq}/bin/jq -r '.repo.ref')"
           localPath="$(printf '%s' "$management" | ${pkgs.jq}/bin/jq -r '.localPath')"
 
           if [ -z "$repoUrl" ]; then
-            echo "notice: host '$host' declares no upstream repository (conf.management.repo.url is null)" >&2
+            echo "notice: host '$host' declares no upstream repository (conf.fleet.repo.url is null)" >&2
             echo "notice: leaving '$localPath' empty" >&2
             exit 0
           fi
@@ -196,7 +196,7 @@
               echo "  so there is nothing for you to activate — a system rebuild does it." >&2
               echo "  Personal configuration goes through review into users/$user/." >&2
               echo "  Self-management is granted per user with" >&2
-              echo "  conf.host.<user>.allowHomeManagement = true." >&2
+              echo "  conf.users.accounts.<user>.selfManagedHome = true." >&2
               exit 1
             fi
 

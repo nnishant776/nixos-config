@@ -3,27 +3,20 @@
   nixpkgs.hostPlatform = "x86_64-linux";
 
   conf = {
-    profile = "workstation";
+    role = "workstation";
 
-    host = {
-      name = "virtual";
-      users = {
-        admin = {
-          fullName = "Administrator";
-          email = "admin@example.com";
-          privileged = true;
-          initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
-        };
-      };
+    host.name = "virtual";
+
+    users.accounts.admin = {
+      fullName = "Administrator";
+      email = "admin@example.com";
+      privileged = true;
+      initialHashedPassword = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
     };
 
-    systemServices = {
-      graphics = {
-        vendor = "intel";
-      };
-      bootloader = {
-        method = "uefi";
-      };
+    hardware = {
+      graphics.vendor = "intel";
+      boot.mode = "uefi";
     };
 
     desktop = {
@@ -45,6 +38,7 @@
     };
   };
 
+  # ------------- Host-specific configuration ---------------
   fonts.fontconfig = {
     enable = true;
     defaultFonts = {

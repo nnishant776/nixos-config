@@ -1,0 +1,137 @@
+{ lib, ... }:
+let
+  # Keyed by username, so the attribute name is the account name. Only
+  # interactive accounts belong here; service accounts are created by the
+  # modules that need them.
+  account = lib.types.submodule ({ name, ... }: {
+    options = {
+      fullName = lib.mkOption {
+        type = lib.types.str;
+        default = name;
+        defaultText = lib.literalExpression "the attribute name";
+        description = "User's full name. Defaults to the username.";
+      };
+      email = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "User's email address.";
+      };
+      privileged = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Grant this user administrative access: sudo through `wheel`, plus the
+          privilege-adjacent groups for whichever services the host enables,
+          namely networkmanager, docker, podman and libvirtd.
+
+          Those groups all confer root or near-root access, so they follow from
+          this one flag rather than being listed individually in `groups`.
+        '';
+      };
+      groups = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = ''
+          Extra groups for the user, beyond those derived from `privileged` and
+          from the host's enabled services. The privilege-granting groups
+          (wheel, docker, podman, libvirtd, networkmanager) are rejected here;
+          set `privileged = true` instead.
+        '';
+      };
+      initialHashedPassword = lib.mkOption {
+        type = lib.types.str;
+        default = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
+        description = "Initial hashed password (change after install).";
+      };
+      manageAccount = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+        description = ''
+          Whether the account itself is created and maintained from this
+          configuration, rather than only its home.
+
+          `null` resolves to true on Linux and false on Darwin, where accounts
+          normally come from MDM. An explicit value overrides that. `false` is
+          not supported on Linux and is rejected by an assertion.
+
+          Setting it true on Darwin adds the user to `users.knownUsers`, which is
+          also nix-darwin's delete list: removing the user from
+          `conf.users.accounts` later deletes the account on the next activation
+          for any uid above 501. A `uid` is required in that case.
+        '';
+      };
+      uid = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = ''
+          Numeric user id, required when `manageAccount` resolves true on Darwin.
+
+          It must match the id the account already has, or activation warns about
+          an unexpected uid and leaves the user untouched. macOS assigns ids from
+          501 in creation order, so one person can hold different ids on
+          different machines unless MDM pins them.
+        '';
+      };
+      gid = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+        description = ''
+          Numeric primary group id. Optional, since nix-darwin defaults to 20
+          (`staff`), which is what a normal macOS account uses.
+        '';
+      };
+      selfManagedHome = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Whether this user manages their own home instead of the system doing
+          it.
+
+          Off by default, meaning a system rebuild activates the home and the
+          user's own `~/.config/home-manager/home.nix` is not read at all.
+          Personal configuration for such a user belongs in `users/<name>/`.
+
+          On, the system stops activating that home and publishes
+          `homeConfigurations.<user>@<host>` for the user to activate with
+          `home-switch`. The baseline, `users/<name>/` and `homeConfig` are
+          still merged in either way; only the activation changes hands.
+        '';
+      };
+      homeConfig = lib.mkOption {
+        type = lib.types.deferredModule;
+        default = { };
+        description = "Additional Home Manager configuration for this user.";
+      };
+    };
+  });
+in {
+  options.conf.users = {
+    manageHomes = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether homes on this machine are managed at all, by either the system
+        or their users. On by default; turning it off means nothing is
+        delivered to any home on the host and nothing is published for users to
+        activate.
+
+        Who manages an individual home is `accounts.<name>.selfManagedHome`.
+      '';
+    };
+    accounts = lib.mkOption {
+      type = lib.types.attrsOf account;
+      default = { };
+      example = lib.literalExpression ''
+        {
+          orgadmin = { fullName = "Org Admin"; privileged = true; };
+          alice = { fullName = "Alice"; selfManagedHome = true; };
+        }
+      '';
+      description = ''
+        Interactive accounts on this machine, keyed by username. Service and
+        system accounts do not belong here; they are created by the modules
+        that need them.
+      '';
+    };
+  };
+}

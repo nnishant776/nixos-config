@@ -2,23 +2,16 @@
   nixpkgs.hostPlatform = "aarch64-darwin";
 
   conf = {
-    profile = "developer";
+    role = "developer";
 
-    host = {
-      name = "generic-darwin";
-      users = {
-        admin = {
-          fullName = "Administrator";
-          email = "admin@example.com";
-        };
-      };
+    host.name = "generic-darwin";
+
+    users.accounts.admin = {
+      fullName = "Administrator";
+      email = "admin@example.com";
     };
 
-    systemServices = {
-      homebrew = {
-        enable = false;
-      };
-    };
+    homebrew.enable = false;
 
     development = {
       enable = true;

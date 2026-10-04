@@ -1,7 +1,7 @@
 # Organisation baseline for every managed user.
 #
 # Values here use lib.mkDefault so per-user organisation config
-# (users/<name>/, extraHomeConfig) and, where permitted, the user's own config
+# (users/<name>/, homeConfig) and, where permitted, the user's own config
 # can override them instead of colliding.
 { config, pkgs, lib, ... }: {
   imports = [

@@ -6,11 +6,11 @@
     content = {
       type = "gpt";
       partitions = {
-        bios_boot = lib.mkIf (config.conf.systemServices.bootloader.method == "bios") {
+        bios_boot = lib.mkIf (config.conf.hardware.boot.mode == "bios") {
           type = "EF02";
           size = "1M";
         };
-        boot = lib.mkIf (config.conf.systemServices.bootloader.method == "uefi") {
+        boot = lib.mkIf (config.conf.hardware.boot.mode == "uefi") {
           size = "1G";
           type = "EF00";
           content = {

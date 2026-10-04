@@ -3,7 +3,7 @@
 # Layers, in the order they are imported:
 #   1. modules/user/           organisation baseline (declares values with mkDefault)
 #   2. users/<username>/       organisation per-user config, auto-discovered
-#   3. extraModules            host-declared conf.host.*.extraHomeConfig
+#   3. extraModules            host-declared conf.users.accounts.<name>.homeConfig
 #   4. ~/.config/home-manager  the user's own config — STANDALONE ONLY, never
 #                              read during a system rebuild
 { pkgs

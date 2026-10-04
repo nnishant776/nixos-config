@@ -9,19 +9,14 @@ let
   isLinux = sysElaborate.isLinux;
   isDarwin = sysElaborate.isDarwin;
 
-  hardwareCfgPath =
-    let perHost = hostDir + "/hardware-configuration.nix";
-    in
-      if builtins.pathExists perHost
-      then [ perHost ]
-      else [];
-
-  diskoCfgPath =
-    let perHost = hostDir + "/disko-config.nix";
-    in
-      if builtins.pathExists perHost
-      then perHost
-      else null;
+  # Every .nix file in the host directory is a module: default.nix,
+  # hardware-configuration.nix, disko-config.nix, network.nix and whatever else
+  # a host keeps there. default.nix never has to import its siblings.
+  hostModules =
+    let entries = builtins.readDir hostDir;
+    in map (f: hostDir + "/${f}")
+      (builtins.filter (f: entries.${f} == "regular" && lib.hasSuffix ".nix" f)
+        (builtins.attrNames entries));
 
   flakeLib = import ./flakeLib.nix { inherit lib; };
 
@@ -43,14 +38,13 @@ let
     ];
   };
 
-  # Home Manager is wired in here for organisation-managed homes. Users
-  # granted conf.host.*.allowHomeManagement are excluded and get a published
+  # Home Manager is wired in here for organisation-managed homes. Users with
+  # conf.users.accounts.<name>.selfManagedHome are excluded and get a published
   # homeConfigurations entry instead.
-  commonModules = [
-    (hostDir + "/default.nix")
+  commonModules = hostModules ++ [
     hostIdentity
-    ../modules/core
     ../modules/conf
+    ../modules/common
     ../modules/user/home-manager.nix
   ];
 in
@@ -61,11 +55,7 @@ in
           system.stateVersion = "26.05";
           conf.platform = "nixos";
         }
-      ]
-      ++ hardwareCfgPath
-      ++ lib.optionals (diskoCfgPath != null) [ diskoCfgPath ]
-      ++ [
-        ../modules/system/linux
+        ../modules/linux
         inputs.home-manager.nixosModules.home-manager
         inputs.noctalia.nixosModules.default
         inputs.noctalia-greeter.nixosModules.default
@@ -78,7 +68,7 @@ in
     inputs.nix-darwin.lib.darwinSystem {
       modules = commonModules ++ [
         { conf.platform = "darwin"; }
-        ../modules/system/darwin
+        ../modules/darwin
         inputs.home-manager.darwinModules.home-manager
       ];
       specialArgs = { inherit inputs flakeLib; };

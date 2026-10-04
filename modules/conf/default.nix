@@ -1,7 +1,8 @@
 { ... }: {
   imports = [
-    ./options.nix
-    ./profile.nix
-    ./implications.nix
+    ./options
+    ./platform.nix
+    ./role.nix
+    ./machineType.nix
   ];
 }

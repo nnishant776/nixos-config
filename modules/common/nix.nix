@@ -1,0 +1,42 @@
+{ config, pkgs, lib, ... }:
+let
+  isLinux = pkgs.stdenv.isLinux;
+  lixpkgs = pkgs.lixPackageSets;
+
+  # Which kind of system this configuration is being deployed to. Declared by
+  # conf.platform and set by lib/mkHost.nix, rather than sniffed from the
+  # evaluating machine.
+  isNixOS = config.conf.platform == "nixos";
+in {
+  nix = {
+    enable = true;
+    # Lix only where this configuration manages an externally installed nix
+    # (nix-darwin, a foreign distro) — on NixOS, nix is already part of the closure.
+    package = lib.mkIf (!isNixOS) lixpkgs.stable.lix;
+    gc = {
+      automatic = true;
+      dates = lib.mkIf isLinux "weekly";
+      options = "--delete-older-than 30d";
+    };
+    settings = {
+      experimental-features = [ "nix-command" "flakes" ];
+      extra-substituters = [ "https://noctalia.cachix.org" ];
+      extra-trusted-public-keys = [ "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4=" ];
+    };
+  };
+
+  nixpkgs.config = {
+    allowUnfree = true;
+    allowUnfreePredicate = (_: true);
+  };
+
+  nixpkgs.overlays = [
+    (final: prev: {
+      inherit (prev.lixpkgs.stable)
+        nixpkgs-review
+        nix-eval-jobs
+        nix-fast-build
+        colmena;
+    })
+  ];
+}

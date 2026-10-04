@@ -2,7 +2,7 @@
 # specialArgs / extraSpecialArgs by lib/mkHost.nix and lib/mkUser.nix.
 { lib }:
 rec {
-  # conf.host.users.<name>.manageAccount is nullOr bool: null resolves by
+  # conf.users.accounts.<name>.manageAccount is nullOr bool: null resolves by
   # platform, since a NixOS machine declares accounts but a Mac gets them from
   # MDM. An explicit value wins.
   accountManaged = platform: user:

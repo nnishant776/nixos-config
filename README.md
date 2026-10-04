@@ -2,31 +2,36 @@
 
 A multi-platform configuration flake for NixOS, macOS and Home Manager
 environments. Machines are declared under `hosts/`, per-user configuration under
-`users/`, and behaviour is driven by the `conf.*` option tree. Role [profiles](#profiles)
-provide defaults that any host can override.
+`users/`, and behaviour is driven by the `conf.*` option tree. A machine's
+[role](#roles) sets defaults that any host can override.
 
 ## Repository Layout
 
 ```
-├── flake.nix                        # entry point; discovers hosts/ and users/
+├── flake.nix                        # entry point; discovers hosts/
 ├── lib/
 │   ├── mkHost.nix                   # host factory (NixOS / nix-darwin)
 │   ├── buildUser.nix                # assembles a user's Home Manager modules
 │   ├── mkUser.nix                   # standalone Home Manager builder
 │   └── flakeLib.nix                 # helpers shared by this flake's modules
 ├── hosts/<hostname>/                # one directory per machine, auto-discovered
+│   ├── default.nix                  # nixpkgs.hostPlatform and conf.* settings
 │   ├── hardware-configuration.nix   # Linux only, from nixos-generate-config
-│   └── default.nix                  # nixpkgs.hostPlatform and conf.* settings
+│   └── *.nix                        # every file here is imported as a module
 ├── users/<username>/                # optional per-user configuration
 │   └── default.nix                  # merged into that user's home, both paths
 └── modules/
-    ├── core/                        # cross-platform baseline and dev tooling
-    ├── conf/                        # the conf.* option tree, profiles, implications
-    ├── user/                        # Home Manager baseline for managed users
-    └── system/
-        ├── linux/                   # NixOS implementation of conf.*
-        └── darwin/                  # macOS implementation of conf.*
+    ├── conf/                        # the conf.* vocabulary: options/<concern>.nix, role.nix, machineType.nix
+    ├── common/                      # configuration valid on both platforms
+    ├── linux/                       # NixOS implementation, one folder per concern
+    ├── darwin/                      # nix-darwin implementation
+    └── user/                        # Home Manager baseline for managed users
 ```
+
+Each concern has one option file in `modules/conf/options/` and one folder or
+file of the same name under `modules/linux/`, so the word in `conf.<name>` finds
+both the declaration and the implementation. A folder's `default.nix` only
+imports its parts; each part sets its own options under its own `mkIf`.
 
 ## Usage
 
@@ -35,6 +40,12 @@ provide defaults that any host can override.
 Create `hosts/<hostname>/default.nix` with `nixpkgs.hostPlatform` and the
 machine's `conf.*` settings. No change to `flake.nix` is needed. The directory
 name must be exactly the machine's hostname.
+
+Anything the `conf` vocabulary does not cover is written as a plain NixOS or
+nix-darwin option in the same file, after the `conf` block. Every `.nix` file
+in the host directory is imported, so `hardware-configuration.nix`,
+`disko-config.nix` or a `network.nix` holding `networking.*` and
+`systemd.network.*` settings need no import line.
 
 ### Building and switching a system
 
@@ -49,12 +60,13 @@ with no arguments works, because that is where it looks when given no flake.
 
 ### Switching a home configuration
 
-Only users granted `allowHomeManagement` have a home configuration to activate.
-For everyone else a system rebuild activates the home.
+Only users with `selfManagedHome` have a home configuration to activate. For
+everyone else a system rebuild activates the home.
 
 ```bash
 home-switch                                    # this user, /etc/nixos, this host
 home-switch <username> <flake path> <host>     # explicit
+home-manager switch --flake /etc/nixos --impure   # the bare CLI resolves <user>@<host> itself
 ```
 
 ### Installing a machine
@@ -64,17 +76,28 @@ nix run .#os-install -- <hostname>
 ```
 
 This partitions the disks with disko, installs the system, and clones
-`conf.management.repo.url` into `conf.management.localPath` pinned to the
-installed revision.
+`conf.fleet.repo.url` into `conf.fleet.localPath` pinned to the installed
+revision.
 
 ### Checking the flake
 
 ```bash
 nix run .#check-purity                         # every system output must evaluate without --impure
-nix eval .#nixosConfigurations.<host>.config.conf.systemServices.graphics.vendor
+nix eval .#nixosConfigurations.<host>.config.conf.hardware.graphics.vendor
 ```
 
 ## Configuration
+
+### `conf.role`, `conf.machineType`, `conf.platform`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `role` | enum: `minimal`/`server`/`workstation`/`developer`/`gaming`/`embedded` | `"minimal"` | What the machine is for. See [Roles](#roles) |
+| `machineType` | enum: `laptop`/`desktop`/`headless`/`vm` | `headless` for server, minimal and embedded, else `desktop` | What the machine physically is. Deduced from the role; overridable |
+| `platform` | enum: `nixos`/`darwin`/`system-manager` | *(set by mkHost)* | Read-only. A host that sets it fails evaluation |
+
+`machineType` does not yet contribute defaults of its own; the laptop, headless
+and VM behaviour it will carry arrives with the hardening work.
 
 ### `conf.host`
 
@@ -83,13 +106,15 @@ nix eval .#nixosConfigurations.<host>.config.conf.systemServices.graphics.vendor
 | `host.name` | str | `"localhost"` | Hostname. Must equal the host directory name |
 | `host.timezone` | str | `"Asia/Kolkata"` | Timezone |
 | `host.locale` | str | `"en_IN"` | Locale; also sets the `LC_*` variables |
-| `host.users` | attrsOf user | `{}` | Interactive accounts, keyed by username |
-| `host.enableHomeManager` | bool | `true` | Whether any home on this machine is managed |
-| `host.ldLibraries.enable` | toggle | `false` | Export shared libraries to nix-ld |
-| `host.ldLibraries.libraries` | listOf package | `[]` | **Replaces** the curated default set |
-| `host.ldLibraries.extraLibraries` | listOf package | `[]` | **Appends** to the default set |
 
-Each entry in `conf.host.users` takes these fields:
+### `conf.users`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `users.manageHomes` | bool | `true` | Whether any home on this machine is managed, by the system or its user |
+| `users.accounts` | attrsOf account | `{}` | Interactive accounts, keyed by username |
+
+Each entry in `conf.users.accounts` takes these fields:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
@@ -98,44 +123,56 @@ Each entry in `conf.host.users` takes these fields:
 | `privileged` | bool | `false` | Grants sudo through `wheel`, plus the privilege-adjacent groups for whichever services the host enables |
 | `groups` | listOf str | `[]` | Extra groups. Privilege-granting groups are rejected here |
 | `initialHashedPassword` | str | *(placeholder)* | Initial password, in `mkpasswd` format |
-| `allowHomeManagement` | bool | `false` | Lets this user manage their own home instead of the system doing it |
+| `selfManagedHome` | bool | `false` | This user manages their own home instead of the system doing it |
 | `manageAccount` | nullOr bool | `null` | Whether the account itself is created here. `null` means true on Linux and false on macOS |
 | `uid` | nullOr int | `null` | Numeric user id. Required on macOS when `manageAccount` is true |
 | `gid` | nullOr int | `null` | Numeric primary group id. Defaults to `20` (`staff`) on macOS |
-| `extraHomeConfig` | deferredModule | `{}` | Additional Home Manager configuration for this user |
+| `homeConfig` | deferredModule | `{}` | Additional Home Manager configuration for this user |
 
 A user's home configuration is assembled from the baseline in `modules/user/`,
-anything in `users/<username>/default.nix`, their `extraHomeConfig`, and — only
-for a user with `allowHomeManagement` — their own
-`~/.config/home-manager/home.nix`.
+anything in `users/<username>/default.nix`, their `homeConfig`, and — only for a
+user with `selfManagedHome` — their own `~/.config/home-manager/home.nix`.
 
-### `conf.management`
+### `conf.hardware`
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `management.repo.url` | nullOr str | `null` | Git remote the machine is deployed from |
-| `management.repo.ref` | str | `"main"` | Branch or tag to track |
-| `management.localPath` | str | `"/etc/nixos"` | Where the configuration checkout lives |
-| `management.autoUpdate.enable` | nullOr bool | `null` | Periodic sync and rebuild. `null` means on when `repo.url` is set |
-| `management.autoUpdate.dates` | str | `"04:00"` | systemd `OnCalendar` expression |
-| `management.autoUpdate.randomizedDelaySec` | int | `1800` | Jitter, so a fleet does not sync simultaneously |
-| `management.autoUpdate.allowReboot` | bool | `false` | Reboot when the kernel or initrd changed |
-| `management.autoUpdate.resetLocalChanges` | bool | `true` | Discard local edits in the checkout before building |
-| `management.autoUpdate.rollbackOnFailure` | bool | `true` | Return to the previous generation if activation fails |
+| `hardware.graphics.enable` | toggle | `false` | Hardware acceleration |
+| `hardware.graphics.vendor` | enum: `intel`/`amd`/`nvidia` | `"intel"` | Driver selection |
+| `hardware.bluetooth.enable` | toggle | `false` | Bluetooth stack (bluez, blueman); also enables all firmware |
+| `hardware.power.enable` | toggle | `false` | Power management daemons (tuned, upower) |
+| `hardware.boot.mode` | enum: `bios`/`uefi` | `"uefi"` | Firmware interface |
+| `hardware.boot.loader` | nullOr enum: `systemd-boot`/`grub`/`uboot` | `"systemd-boot"` | Bootloader; GRUB when `mode` is `bios` |
+| `hardware.boot.efiVariables` | toggle | `false` | Let the bootloader write EFI variables |
 
-Point a canary group of machines at one `ref` and the rest at another, then
-promote a release by moving the slower ref.
+`hardware.graphics` also takes `extraPackages` and `nix-ldLibraries`.
 
-### `conf.platform`
+### `conf.networking` and `conf.sharing`
 
-One of `nixos`, `darwin` or `system-manager`. Set by `lib/mkHost.nix`; hosts do
-not set it. Use it for differences that belong to the deployment rather than the
-platform, and `pkgs.stdenv.hostPlatform.isLinux`/`isDarwin` for the rest.
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `networking.enable` | toggle | `false` | NetworkManager |
+| `networking.wifi.enable` | toggle | `false` | Wi-Fi backend |
+| `networking.firewall.enable` | toggle | `false` | Apply `firewall.config`; the NixOS firewall itself is on regardless |
+| `networking.firewall.config` | attrs | `{}` | Merged into `networking.firewall` |
+| `sharing.enable` | toggle | `false` | Services that expose this machine to the network |
+| `sharing.ssh.enable` | toggle | `false` | SSH server |
+| `sharing.ssh.config` | attrs | `{}` | Merged into `services.openssh` |
 
-### `conf.profile`
+Topology — addresses, routes, VLANs, bridges, a DHCP server — is not wrapped.
+Write it as `networking.*` or `systemd.network.*` options in the host directory,
+for example in a `network.nix`.
 
-One of `minimal`, `server`, `workstation`, `developer`, `gaming` or `embedded`.
-See [Profiles](#profiles).
+### `conf.containers` and `conf.virtualisation`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `containers.enable` | toggle | `false` | Docker (rootful and rootless) and Podman |
+| `containers.extraPackages` | listOf package | `[]` | Extra container tooling |
+| `virtualisation.enable` | toggle | `false` | KVM, QEMU, libvirt, virt-manager |
+| `virtualisation.extraPackages` | listOf package | `[]` | Extra virtualisation packages |
+
+`virtualisation` also takes `nix-ldLibraries`.
 
 ### `conf.desktop`
 
@@ -144,10 +181,15 @@ See [Profiles](#profiles).
 | `desktop.enable` | toggle | `false` | GUI stack and greeter |
 | `desktop.environments.gnome.enable` | toggle | `false` | Make GNOME available |
 | `desktop.environments.hyprland.enable` | toggle | `false` | Make Hyprland available |
-| `desktop.environments.hyprland.shell` | enum: `none`/`caelestia`/`noctalia`/`dms` | `"none"` | Optional Hyprland shell |
+| `desktop.environments.hyprland.shell` | enum: `none`/`caelestia`/`noctalia`/`dms` | `"none"` | Desktop shell on Hyprland |
 | `desktop.environments.sway.enable` | toggle | `false` | Make Sway available |
-| `desktop.packages` | listOf package | `[]` | Replaces the default desktop application set |
-| `desktop.extraPackages` | listOf package | `[]` | Appends to the desktop application set |
+| `desktop.packages` | listOf package | `[]` | **Replaces** the default desktop application set |
+| `desktop.extraPackages` | listOf package | `[]` | **Appends** to the desktop application set |
+| `desktop.fonts.packages` | listOf package | `[]` | **Replaces** the curated font set |
+| `desktop.fonts.extraPackages` | listOf package | `[]` | **Appends** to the font set |
+| `desktop.multimedia.enable` | toggle | `false` | Audio and video stack |
+
+`desktop.multimedia` also takes `extraPackages` and `nix-ldLibraries`.
 
 Enabling several environments makes them all available as session choices at the
 greeter. Enabling the desktop also implies multimedia, graphics, power
@@ -158,37 +200,15 @@ desktop. It lists whichever sessions the host installs. Customisation goes
 through the upstream options — `programs.regreet.settings`, `extraCss`,
 `cageArgs`, and the theme, icon theme, cursor theme and font settings.
 
-### `conf.systemServices`
-
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `systemServices.bootloader.method` | enum: `bios`/`uefi` | `"uefi"` | Boot method |
-| `systemServices.bootloader.program` | nullOr enum: `systemd-boot`/`grub`/`uboot` | `"systemd-boot"` | Bootloader |
-| `systemServices.bootloader.allowEFIVariableEdit` | toggle | `false` | Allow writing EFI variables |
-| `systemServices.networking.enable` | toggle | `false` | NetworkManager |
-| `systemServices.networking.wifi.enable` | toggle | `false` | WiFi backend |
-| `systemServices.networking.bluetooth.enable` | toggle | `false` | Bluetooth backend |
-| `systemServices.multimedia.enable` | toggle | `false` | Audio and video stack |
-| `systemServices.graphics.enable` | toggle | `false` | Hardware acceleration |
-| `systemServices.graphics.vendor` | enum: `intel`/`amd`/`nvidia` | `"intel"` | Driver selection |
-| `systemServices.powerManagement.enable` | toggle | `false` | Power management daemons |
-| `systemServices.containerisation.enable` | toggle | `false` | Docker and Podman |
-| `systemServices.virtualisation.enable` | toggle | `false` | KVM, QEMU, libvirt, virt-manager |
-| `systemServices.flatpak.enable` | toggle | `false` | Flatpak support |
-| `systemServices.homebrew.enable` | toggle (macOS) | `false` | Homebrew integration |
-| `systemServices.homebrew.brews` / `.casks` | listOf str | `[]` | Formulae and casks |
-| `systemServices.homebrew.masApps` | attrsOf int | `{}` | Mac App Store applications, name to id |
-| `systemServices.homebrew.onActivation.cleanup` | enum: `none`/`uninstall`/`zap` | `"none"` | Cleanup mode |
-
-The multimedia, graphics and virtualisation groups each also take
-`extraPackages` and `nix-ldLibraries`; containerisation takes `extraPackages`.
-
 ### `conf.development`
 
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `development.enable` | toggle | `false` | Master switch for the development stack |
 | `development.extraPackages` | listOf package | `[]` | Always-installed extras |
+| `development.nixLd.enable` | toggle | `false` | Export the curated library set to nix-ld, for running downloaded binaries |
+| `development.nixLd.libraries` | listOf package | `[]` | **Replaces** the curated set |
+| `development.nixLd.extraLibraries` | listOf package | `[]` | **Appends** to the curated set |
 
 Each SDK (`sdk.base`, `sdk.cpp`, `sdk.go`, `sdk.rust`, `sdk.python`, `sdk.java`,
 `sdk.nix`, `sdk.cue`, `sdk.lua`) and each tool (`tools.gemini`,
@@ -204,23 +224,48 @@ Each SDK (`sdk.base`, `sdk.cpp`, `sdk.go`, `sdk.rust`, `sdk.python`, `sdk.java`,
 Editors take the same fields. `editors.neovim` and `editors.emacs` additionally
 accept `configPath` for a local path and `configRepo` for a remote one.
 
-## Profiles
+### `conf.flatpak` and `conf.homebrew`
 
-A profile is a role preset. Every value it sets uses `lib.mkDefault`, so a plain
-assignment in a host configuration always wins without any special syntax.
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `flatpak.enable` | toggle | `false` | Flatpak |
+| `homebrew.enable` | toggle (macOS) | `false` | Homebrew integration |
+| `homebrew.brews` / `.casks` | listOf str | `[]` | Formulae and casks |
+| `homebrew.masApps` | attrsOf int | `{}` | Mac App Store applications, name to id |
+| `homebrew.onActivation.cleanup` | enum: `none`/`uninstall`/`zap` | `"none"` | Cleanup mode |
 
-| Profile | Enables |
+### `conf.fleet`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `fleet.repo.url` | nullOr str | `null` | Git remote the machine is deployed from |
+| `fleet.repo.ref` | str | `"main"` | Branch or tag to track |
+| `fleet.localPath` | str | `"/etc/nixos"` | Where the configuration checkout lives |
+| `fleet.autoUpdate.enable` | nullOr bool | `null` | Periodic sync and rebuild. `null` means on when `repo.url` is set |
+| `fleet.autoUpdate.dates` | str | `"04:00"` | systemd `OnCalendar` expression |
+| `fleet.autoUpdate.randomizedDelaySec` | int | `1800` | Jitter, so a fleet does not sync simultaneously |
+| `fleet.autoUpdate.allowReboot` | bool | `false` | Reboot when the kernel or initrd changed |
+| `fleet.autoUpdate.resetLocalChanges` | bool | `true` | Discard local edits in the checkout before building |
+| `fleet.autoUpdate.rollbackOnFailure` | bool | `true` | Return to the previous generation if activation fails |
+
+Point a canary group of machines at one `ref` and the rest at another, then
+promote a release by moving the slower ref.
+
+## Roles
+
+A role is what the machine is for. Every value it sets uses `lib.mkDefault`, so
+a plain assignment in a host configuration always wins without any special
+syntax. Roles inherit from one another; `developer` and `gaming` build on
+`workstation`.
+
+| Role | Enables |
 |---|---|
 | `minimal` | networking |
-| `server` | networking, containerisation, virtualisation, development with `sdk.base` |
-| `workstation` | networking and wifi, multimedia, graphics, desktop, power management, flatpak |
-| `developer` | the workstation set, plus containerisation, virtualisation and development with all SDKs, neovim and emacs |
+| `server` | networking, containers, virtualisation, development with `sdk.base` |
+| `workstation` | networking and Wi-Fi, bluetooth, graphics, power, desktop with multimedia, flatpak |
+| `developer` | the workstation set, plus containers, virtualisation and development with `sdk.base`, `sdk.cpp` and neovim |
 | `gaming` | the workstation set |
 | `embedded` | networking, development with `sdk.base` and `sdk.cpp` |
-
-`developer` enables every SDK and both neovim and emacs, but leaves
-`editors.vscode` and all of `tools.*` off. Add game launchers to `gaming` with
-`desktop.extraPackages`.
 
 ```nix
 # hosts/my-laptop/default.nix
@@ -228,24 +273,21 @@ assignment in a host configuration always wins without any special syntax.
   nixpkgs.hostPlatform = "x86_64-linux";
 
   conf = {
-    profile = "developer";
+    role = "developer";
+    machineType = "laptop";
 
-    host = {
-      name = "my-laptop";
-      users.alice = {
-        fullName = "Alice";
-        privileged = true;
-        allowHomeManagement = true;
-      };
+    host.name = "my-laptop";
+
+    users.accounts.alice = {
+      fullName = "Alice";
+      privileged = true;
+      selfManagedHome = true;
     };
 
-    systemServices = {
-      containerisation.enable = false;        # the preset enables it
-      graphics.vendor = "nvidia";
-    };
+    containers.enable = false;              # the role enables it
+    hardware.graphics.vendor = "nvidia";
 
     desktop = {
-      enable = true;
       environments.hyprland = {
         enable = true;
         shell = "caelestia";
@@ -253,8 +295,11 @@ assignment in a host configuration always wins without any special syntax.
       extraPackages = with pkgs; [ discord spotify ];
     };
 
-    development.sdk.go.enable = false;
+    development.sdk.go.enable = true;
   };
+
+  # Anything conf does not cover is a plain option, here.
+  services.cloudflare-warp.enable = true;
 }
 ```
 
@@ -262,7 +307,7 @@ assignment in a host configuration always wins without any special syntax.
 
 | You want | Use |
 |---|---|
-| Override a value a module set with `lib.mkDefault`, including every profile preset | a plain assignment |
+| Override a value a module set with `lib.mkDefault`, including every role default | a plain assignment |
 | Override a value a module set with a plain assignment | `lib.mkForce`; two plain definitions are a conflict, not a win |
 | Beat another module's `lib.mkForce` | `lib.mkOverride 40`; two `mkForce` definitions conflict |
 | Append to a list | `extraPackages`, or a plain list assignment, since list definitions concatenate |
@@ -280,31 +325,36 @@ that `nixos-rebuild` with no arguments resolves `#$(hostname)`.
 **A home has exactly one owner.** By default the organisation owns it and a
 system rebuild activates it, in which case the user's own
 `~/.config/home-manager/home.nix` is not read at all — silently. Personal
-configuration for such a user belongs in `users/<username>/`. Granting
-`allowHomeManagement` moves ownership to the user, who then activates it with
+configuration for such a user belongs in `users/<username>/`. Setting
+`selfManagedHome` moves ownership to the user, who then activates it with
 `home-switch`; the system stops doing so. Do not try to arrange both: two Home
 Manager generations over one home directory remove each other's files on every
 activation.
 
-**Revoking `allowHomeManagement` is destructive.** The next rebuild activates the
+**Revoking `selfManagedHome` is destructive.** The next rebuild activates the
 organisation's home, and files the user's own generation placed are removed.
 Conflicting files are moved aside rather than deleted, with a suffix naming the
 flake revision that displaced them.
 
-**`host.enableHomeManager = false` means nothing manages the home**, neither the
+**`users.manageHomes = false` means nothing manages the home**, neither the
 organisation nor the user.
 
 **On macOS, accounts are left alone by default.** `manageAccount` resolves to
 false there, so nix-darwin does not touch the account and only the home is
 configured. Setting it true adds the user to `users.knownUsers`, which is also
-nix-darwin's delete list — removing that user from `conf.host.users` afterwards
-deletes the account on the next activation for any uid above 501. A `uid` is
-required in that case and must match the account's existing id, or activation
-warns about an unexpected uid and skips the user. nix-darwin's own documentation
-advises against managing the administrator account this way.
+nix-darwin's delete list — removing that user from `conf.users.accounts`
+afterwards deletes the account on the next activation for any uid above 501. A
+`uid` is required in that case and must match the account's existing id, or
+activation warns about an unexpected uid and skips the user. nix-darwin's own
+documentation advises against managing the administrator account this way.
 
 **On Linux, `manageAccount = false` is not supported** and is rejected by an
 assertion.
+
+**A Linux-only toggle set on a Mac does nothing.** The `conf.*` vocabulary is
+declared on both platforms; a platform implements what it can and ignores the
+rest. `conf.desktop`, `conf.sharing`, `conf.networking`, `conf.flatpak` and
+`conf.fleet` have no Darwin implementation today.
 
 **System outputs must evaluate without `--impure`.** `nix run .#check-purity`
 enforces it. Reading machine state during evaluation, such as `/etc/os-release`,

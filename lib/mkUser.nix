@@ -32,13 +32,13 @@ let
   hostUserEntries = { hostConfigs }:
     lib.flatten (lib.mapAttrsToList (dirName: hostCfg:
       let
-        host = hostCfg.config.conf.host;
-        # Only users granted allowHomeManagement. Organisation-managed homes
-        # are activated by the system (modules/user/home-manager.nix) and must
-        # not also be published here.
+        users = hostCfg.config.conf.users;
+        # Only users with selfManagedHome. Organisation-managed homes are
+        # activated by the system (modules/user/home-manager.nix) and must not
+        # also be published here.
         enabledUsers = lib.filterAttrs
-          (_: u: host.enableHomeManager && u.allowHomeManagement)
-          host.users;
+          (_: u: users.manageHomes && u.selfManagedHome)
+          users.accounts;
       in
         lib.mapAttrsToList (username: u: {
           inherit username dirName;
@@ -51,7 +51,7 @@ let
     mkUser {
       inherit usersDir;
       inherit (e) username pkgs;
-      extraModules = [ e.userCfg.extraHomeConfig ];
+      extraModules = [ e.userCfg.homeConfig ];
     };
 
   # Keyed `<username>@<host-dir>`:
