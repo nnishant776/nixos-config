@@ -66,13 +66,18 @@
     nixosConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) linuxHosts;
     darwinConfigurations = lib.mapAttrs (h: _: mkHost { hostName = h; hostDir = ./hosts/${h}; }) darwinHosts;
 
+    # The two sets are keyed by host directory and a directory has one platform,
+    # so they cannot overlap; unionOfDisjoint says so and fails loudly if that
+    # ever stops being true, where // would silently keep one side.
+    allHosts = lib.attrsets.unionOfDisjoint nixosConfigurations darwinConfigurations;
+
     homeConfigurations = mkUser.mkHomeConfigurations {
-      hostConfigs = nixosConfigurations // darwinConfigurations;
+      hostConfigs = allHosts;
       usersDir = ./users;
     };
 
     # One set of apps per system any host uses; the scripts live in lib/apps.
-    systems = lib.unique (lib.attrValues (linuxHosts // darwinHosts));
+    systems = lib.unique (lib.attrValues (lib.attrsets.unionOfDisjoint linuxHosts darwinHosts));
     apps = lib.genAttrs systems (system:
       import ./lib/apps { inherit self; pkgs = nixpkgs.legacyPackages.${system}; });
   in {
