@@ -175,7 +175,7 @@ user with `selfManagedHome` — their own `~/.config/home-manager/home.nix`.
 | `hardware.graphics.enable` | toggle | `false` | Hardware acceleration |
 | `hardware.graphics.vendor` | enum: `intel`/`amd`/`nvidia` | `"intel"` | Driver selection |
 | `hardware.bluetooth.enable` | toggle | `false` | Bluetooth stack (bluez, blueman); also enables all firmware |
-| `hardware.power.enable` | toggle | `false` | Power management daemons (tuned, upower) |
+| `hardware.powerManagement.enable` | toggle | `false` | Power management daemons (tuned, upower) |
 | `hardware.boot.mode` | enum: `bios`/`uefi` | `"uefi"` | Firmware interface |
 | `hardware.boot.loader` | nullOr enum: `systemd-boot`/`grub`/`uboot` | `"systemd-boot"` | Bootloader; GRUB when `mode` is `bios` |
 | `hardware.boot.efiVariables` | toggle | `false` | Let the bootloader write EFI variables |

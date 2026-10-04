@@ -68,7 +68,7 @@
         vendor = "intel";
       };
       # Power management daemons (tuned, upower).
-      power.enable = true;
+      powerManagement.enable = true;
     };
 
     desktop = {

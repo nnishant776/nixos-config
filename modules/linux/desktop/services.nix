@@ -17,7 +17,7 @@
     # Desktop implications.
     conf.desktop.multimedia.enable = lib.mkDefault true;
     conf.hardware.graphics.enable  = lib.mkDefault true;
-    conf.hardware.power.enable     = lib.mkDefault true;
+    conf.hardware.powerManagement.enable     = lib.mkDefault true;
     conf.flatpak.enable            = lib.mkDefault true;
   };
 }

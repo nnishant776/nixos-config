@@ -11,11 +11,11 @@ let
       networking.wifi.enable = true;
       hardware = {
         bluetooth.enable = true;
-        power.enable = true;
+        powerManagement.enable = true;
       };
     };
     desktop = {
-      hardware.power.enable = true;
+      hardware.powerManagement.enable = true;
     };
     headless = { };
     vm = { };

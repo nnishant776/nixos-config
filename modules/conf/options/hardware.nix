@@ -21,7 +21,7 @@
 
     bluetooth.enable = lib.mkEnableOption "the Bluetooth stack";
 
-    power.enable = lib.mkEnableOption "the power management daemons (tuned, upower)";
+    powerManagement.enable = lib.mkEnableOption "the power management daemons (tuned, upower)";
 
     boot = {
       mode = lib.mkOption {
