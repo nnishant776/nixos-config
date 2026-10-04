@@ -10,6 +10,13 @@ let
   cfg = config.conf.fleet;
   au = cfg.autoUpdate;
 
+  # Public keys only, copied into the store. /dev/null when unset, which the
+  # assertion below only allows for a host with no upstream.
+  signers =
+    if cfg.signing.allowedSignersFile != null
+    then "${cfg.signing.allowedSignersFile}"
+    else "/dev/null";
+
   syncScript = pkgs.writeShellApplication {
     name = "config-auto-update";
     runtimeInputs = [
@@ -18,6 +25,7 @@ let
       config.nix.package
       pkgs.coreutils
       pkgs.systemd
+      pkgs.openssh # ssh-keygen, which git uses to verify SSH signatures
     ];
     text = ''
       repo=${lib.escapeShellArg cfg.localPath}
@@ -32,9 +40,42 @@ let
         exit 1
       fi
 
-      git -C "$repo" fetch --prune origin "$ref"
+      # The checkout is evaluated as root; whoever can write it owns the machine.
+      owner="$(stat -c %U "$repo")"
+      mode="$(stat -c %a "$repo")"
+      if [ "$owner" != root ] || [ $(( 8#$mode & 8#022 )) -ne 0 ]; then
+        log "refusing: $repo is owned by $owner with mode $mode; it must be root-owned and not group- or world-writable"
+        exit 1
+      fi
+
+      # Fleet machines pull. The push URL is set to something that cannot
+      # work, on every run, so a stray `git push` from this checkout fails.
+      # The real control is the read-only credential the machine holds.
+      git -C "$repo" remote set-url --push origin no_push
+      ${lib.optionalString (cfg.repo.deployKeySecret != null) ''
+        export GIT_SSH_COMMAND="ssh -i ${config.sops.secrets.${cfg.repo.deployKeySecret}.path} -o IdentitiesOnly=yes"
+      ''}
+
+      # The network may not be up yet on a machine that does not wait for it
+      # at boot, so the fetch is retried with a growing pause.
+      attempt=0
+      until git -C "$repo" fetch --prune origin "$ref"; do
+        attempt=$((attempt + 1))
+        if [ "$attempt" -ge 10 ]; then
+          log "fetch of $ref failed after $attempt attempts"
+          exit 1
+        fi
+        sleep $((attempt * 15))
+      done
       target="$(git -C "$repo" rev-parse FETCH_HEAD)"
       before="$(git -C "$repo" rev-parse HEAD)"
+
+      # Nothing is checked out, built or activated unless the fetched commit
+      # carries an SSH signature from the signers file this configuration ships.
+      if ! git -C "$repo" -c gpg.ssh.allowedSignersFile=${signers} verify-commit "$target" >/dev/null 2>&1; then
+        log "refusing: commit $target on $ref is not signed by an allowed signer"
+        exit 1
+      fi
 
       ${if au.resetLocalChanges then ''
         git -C "$repo" reset --hard "$target"
@@ -119,6 +160,24 @@ in
     {
       assertions = [
         {
+          assertion = cfg.repo.url == null || cfg.signing.allowedSignersFile != null;
+          message =
+            "conf.fleet.repo.url is set but conf.fleet.signing.allowedSignersFile"
+            + " is null: a fleet host must verify what it fetches before building it.";
+        }
+        {
+          assertion = cfg.repo.deployKeySecret == null || config.conf.secrets.file != null;
+          message =
+            "conf.fleet.repo.deployKeySecret is set but conf.secrets.file is null;"
+            + " the key has to come from the host's secrets file.";
+        }
+        {
+          assertion = cfg.repo.url == null || !(lib.hasPrefix "http://" cfg.repo.url);
+          message =
+            "conf.fleet.repo.url uses plain http://, which lets anyone on the path"
+            + " serve configuration to this machine. Use https:// or ssh.";
+        }
+        {
           assertion = !(au.enable == true && cfg.repo.url == null);
           message =
             "conf.fleet.autoUpdate.enable is true but"
@@ -130,6 +189,12 @@ in
     }
 
     (lib.mkIf (enabled && cfg.repo.url != null && config.conf.platform == "nixos") {
+
+    # Read-only deploy key for a private repository, root-only at
+    # /run/secrets/<name>; the sync hands it to ssh above.
+    sops.secrets = lib.mkIf (cfg.repo.deployKeySecret != null) {
+      ${cfg.repo.deployKeySecret} = { };
+    };
 
     systemd.services.config-auto-update = {
       description = "Sync ${cfg.localPath} from ${cfg.repo.ref} and rebuild";
@@ -143,8 +208,13 @@ in
       # the run is killed by its own success.
       restartIfChanged = false;
 
+      # Not sandboxed further: this unit exists to replace the running system,
+      # so it needs /nix, /etc, /boot and the profile writable, and ProtectHome
+      # would break nix's cache under /root. PrivateTmp is the one thing that
+      # costs nothing.
       serviceConfig = {
         Type = "oneshot";
+        PrivateTmp = true;
         ExecStart = lib.getExe syncScript;
       };
     };

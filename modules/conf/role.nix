@@ -20,13 +20,10 @@ let
       };
     };
 
+    # Wi-Fi, Bluetooth and power management are machineType concerns (laptop,
+    # desktop), not role ones.
     workstation = extend minimal {
-      networking.wifi.enable = true;
-      hardware = {
-        bluetooth.enable = true;
-        graphics.enable = true;
-        power.enable = true;
-      };
+      hardware.graphics.enable = true;
       desktop = {
         enable = true;
         multimedia.enable = true;

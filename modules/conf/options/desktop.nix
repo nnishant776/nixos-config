@@ -30,6 +30,27 @@ in {
       extraPackages = packageList "Appended to whichever set `fonts.packages` resolves to.";
     };
 
+    idleLockSeconds = lib.mkOption {
+      type = lib.types.int;
+      default = 600;
+      description = ''
+        Seconds of inactivity before the session locks. Enforced through dconf
+        on GNOME and through a system-level swayidle unit on Hyprland without a
+        shell and on Sway; shells such as DMS carry their own idle handling.
+        `0` disables the organisation's locker.
+      '';
+    };
+
+    printing.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Print to printers on the network: CUPS on localhost, driverless
+        discovery through cups-browsed and Avahi. This machine is never a print
+        server and advertises nothing. On by default wherever the desktop is.
+      '';
+    };
+
     multimedia = {
       enable = lib.mkEnableOption "the audio and video stack (codecs, players)";
       extraPackages = packageList "Extra audio and video packages.";

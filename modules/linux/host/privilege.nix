@@ -44,6 +44,7 @@ let
     ++ lib.optionals config.conf.virtualisation.enable [ "kvm" ]
     ++ lib.optionals user.privileged (
       [ "wheel" ]
+      ++ lib.optionals config.conf.sharing.ssh.enable [ "ssh-users" ]
       ++ lib.optionals config.conf.networking.enable [ "networkmanager" ]
       ++ lib.optionals config.conf.containers.enable [ "docker" "podman" ]
       ++ lib.optionals config.conf.virtualisation.enable [ "libvirtd" ]
@@ -62,8 +63,13 @@ in
       extraGroups = lib.unique (groupsFor user);
     }) users;
 
-    # Holds the narrow NetworkManager permissions below.
-    users.groups = lib.mkIf config.conf.networking.enable { network-users = { }; };
+    users.groups = lib.mkMerge [
+      # Holds the narrow NetworkManager permissions below.
+      (lib.mkIf config.conf.networking.enable { network-users = { }; })
+      # sshd's AllowGroups (sharing/ssh.nix). Not a privilege: membership only
+      # permits a login that still needs a key or password.
+      (lib.mkIf config.conf.sharing.ssh.enable { ssh-users = { }; })
+    ];
 
     # sudo is reachable only through wheel, which only `privileged` grants.
     security.sudo.execWheelOnly = true;

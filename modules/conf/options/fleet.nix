@@ -20,6 +20,17 @@
           and the rest at another to stage a rollout.
         '';
       };
+      deployKeySecret = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "deploy-key";
+        description = ''
+          Key in `conf.secrets.file` holding a read-only SSH deploy key for a
+          private `repo.url`. The sync uses it for every fetch. Give the key
+          read access only on the hosting side; the machine's own push URL is
+          disabled regardless. Requires `conf.secrets.file`.
+        '';
+      };
     };
 
     localPath = lib.mkOption {
@@ -32,6 +43,19 @@
 
         It is a git checkout rather than a copy, so `git -C <path> rev-parse
         HEAD` states which revision the machine should be running.
+      '';
+    };
+
+    signing.allowedSignersFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      example = lib.literalExpression "../../fleet/allowed_signers";
+      description = ''
+        SSH allowed-signers file (`<principal> <key-type> <key>` per line) that
+        every commit fetched on `repo.ref` must be signed by. Required when
+        `repo.url` is set: the sync verifies `FETCH_HEAD` against it before
+        anything is built, so a compromised remote cannot push configuration
+        to the fleet. Public keys only; the file is copied into the store.
       '';
     };
 

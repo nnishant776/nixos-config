@@ -35,6 +35,7 @@
         description = "Bootloader to install. Defaults to GRUB when `mode` is `bios`.";
       };
       efiVariables = lib.mkEnableOption "letting the bootloader write EFI variables";
+      tpm2Unlock = lib.mkEnableOption "unlocking LUKS volumes with the TPM at boot (systemd-cryptenroll; the passphrase remains as fallback)";
     };
   };
 }

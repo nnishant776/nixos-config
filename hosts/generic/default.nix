@@ -3,6 +3,7 @@
 
   conf = {
     role = "developer";
+    machineType = "laptop";
 
     host.name = "generic";
 

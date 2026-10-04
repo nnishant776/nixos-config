@@ -204,16 +204,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1787797243,
-        "narHash": "sha256-8+Q7NOB7RPajRjA4pbCDLzqH+MTjnG9x6LUPLfL2joA=",
+        "lastModified": 1790996401,
+        "narHash": "sha256-f+kOxEmOUnQazVAmGg0i8hzwgd1kX/geY+k/Dpheye8=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "99c9ec63390f1d8c14d95d9e8b17cc29cfbd4e11",
+        "rev": "db7d5e2332710f5abb088f6b5de927d7f9511b35",
         "type": "github"
       },
       "original": {
         "owner": "nix-community",
-        "ref": "master",
+        "ref": "release-26.05",
         "repo": "home-manager",
         "type": "github"
       }
@@ -324,26 +324,6 @@
         "type": "github"
       }
     },
-    "noctalia-greeter": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1787856212,
-        "narHash": "sha256-MMhia1PBaQoQ4iv5f09bGOT00Ni41z8awxXBl97T404=",
-        "owner": "noctalia-dev",
-        "repo": "noctalia-greeter",
-        "rev": "eefd43230b34ffbaa9267fede4d8aef1a784294a",
-        "type": "github"
-      },
-      "original": {
-        "owner": "noctalia-dev",
-        "repo": "noctalia-greeter",
-        "type": "github"
-      }
-    },
     "ny": {
       "flake": false,
       "locked": {
@@ -388,7 +368,7 @@
         "nixpkgs": "nixpkgs_2",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "noctalia": "noctalia",
-        "noctalia-greeter": "noctalia-greeter"
+        "sops-nix": "sops-nix"
       }
     },
     "sf-arabic": {
@@ -473,6 +453,26 @@
       "original": {
         "type": "file",
         "url": "https://devimages-cdn.apple.com/design/resources/download/SF-Pro.dmg"
+      }
+    },
+    "sops-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791103873,
+        "narHash": "sha256-nFxM+pKoZ8LJAEnUXARyCaOAloWgaW9kZQOSjWzKcTE=",
+        "owner": "Mic92",
+        "repo": "sops-nix",
+        "rev": "dcd241ba97088c22569d1573286e1b9daad340c0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Mic92",
+        "repo": "sops-nix",
+        "type": "github"
       }
     }
   },

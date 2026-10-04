@@ -20,6 +20,8 @@ environments. Machines are declared under `hosts/`, per-user configuration under
 │   └── *.nix                        # every file here is imported as a module
 ├── users/<username>/                # optional per-user configuration
 │   └── default.nix                  # merged into that user's home, both paths
+├── templates/
+│   └── disko-luks.nix               # encrypted disk layout to copy into a host
 └── modules/
     ├── conf/                        # the conf.* vocabulary: options/<concern>.nix, role.nix, machineType.nix
     ├── common/                      # configuration valid on both platforms
@@ -75,9 +77,43 @@ home-manager switch --flake /etc/nixos --impure   # the bare CLI resolves <user>
 nix run .#os-install -- <hostname>
 ```
 
-This partitions the disks with disko, installs the system, and clones
-`conf.fleet.repo.url` into `conf.fleet.localPath` pinned to the installed
-revision.
+This partitions the disks with disko, installs the system without asking for a
+root password — root is locked by the configuration and administration goes
+through sudo — and clones `conf.fleet.repo.url` into `conf.fleet.localPath`
+pinned to the installed revision.
+
+For an encrypted layout, start from `templates/disko-luks.nix`: copy it to
+`hosts/<name>/disko-config.nix` and set the device and swap size. `os-install`
+then asks for the passphrase once before partitioning, and with
+`conf.hardware.boot.tpm2Unlock` enrols the TPM (PCR 7) as a second unlock method
+after installation. On a machine without a TPM the enrolment is skipped with a
+warning and the passphrase stays the only method; at boot the TPM option simply
+falls through to the passphrase prompt. A host with `conf.secrets.file` also
+gets its age key generated at install, with the public half printed for
+`.sops.yaml`.
+
+**Fleet machines pull; they cannot push.** The checkout's push URL is set to an
+unusable value at install and re-applied on every sync, so a `git push` from a
+fleet machine fails. That is hygiene; the control is the credential: a public
+repository needs none, and a private one gets a deploy key with read access
+only, through `fleet.repo.deployKeySecret`.
+
+### Signing commits for a fleet
+
+A fleet host refuses to build anything it fetched unless the commit is signed by
+a key in `conf.fleet.signing.allowedSignersFile`. Signing with an SSH key takes
+three settings on each committing machine:
+
+```bash
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true
+```
+
+The signers file lists one `<principal> <key-type> <key>` per line, with the
+public keys only, and is committed to the repository so every machine carries
+it. Rotating a key means adding the new one, waiting for the fleet to converge,
+then removing the old one.
 
 ### Checking the flake
 
@@ -93,11 +129,8 @@ nix eval .#nixosConfigurations.<host>.config.conf.hardware.graphics.vendor
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `role` | enum: `minimal`/`server`/`workstation`/`developer`/`gaming`/`embedded` | `"minimal"` | What the machine is for. See [Roles](#roles) |
-| `machineType` | enum: `laptop`/`desktop`/`headless`/`vm` | `headless` for server, minimal and embedded, else `desktop` | What the machine physically is. Deduced from the role; overridable |
+| `machineType` | enum: `laptop`/`desktop`/`headless`/`vm` | `headless` for server, minimal and embedded, else `desktop` | What the machine physically is. See [Machine types](#machine-types). Deduced from the role; overridable |
 | `platform` | enum: `nixos`/`darwin`/`system-manager` | *(set by mkHost)* | Read-only. A host that sets it fails evaluation |
-
-`machineType` does not yet contribute defaults of its own; the laptop, headless
-and VM behaviour it will carry arrives with the hardening work.
 
 ### `conf.host`
 
@@ -122,7 +155,8 @@ Each entry in `conf.users.accounts` takes these fields:
 | `email` | str | `""` | Email address |
 | `privileged` | bool | `false` | Grants sudo through `wheel`, plus the privilege-adjacent groups for whichever services the host enables |
 | `groups` | listOf str | `[]` | Extra groups. Privilege-granting groups are rejected here |
-| `initialHashedPassword` | str | *(placeholder)* | Initial password, in `mkpasswd` format |
+| `initialHashedPassword` | nullOr str | `null` | Password hash applied when the account is created, `mkpasswd -m yescrypt` format. `null` creates it locked |
+| `sshKeys` | listOf str | `[]` | SSH public keys accepted for this account |
 | `selfManagedHome` | bool | `false` | This user manages their own home instead of the system doing it |
 | `manageAccount` | nullOr bool | `null` | Whether the account itself is created here. `null` means true on Linux and false on macOS |
 | `uid` | nullOr int | `null` | Numeric user id. Required on macOS when `manageAccount` is true |
@@ -144,6 +178,7 @@ user with `selfManagedHome` — their own `~/.config/home-manager/home.nix`.
 | `hardware.boot.mode` | enum: `bios`/`uefi` | `"uefi"` | Firmware interface |
 | `hardware.boot.loader` | nullOr enum: `systemd-boot`/`grub`/`uboot` | `"systemd-boot"` | Bootloader; GRUB when `mode` is `bios` |
 | `hardware.boot.efiVariables` | toggle | `false` | Let the bootloader write EFI variables |
+| `hardware.boot.tpm2Unlock` | toggle | `false` | Unlock LUKS volumes with the TPM at boot; the passphrase stays as fallback. Enrolled by `os-install` |
 
 `hardware.graphics` also takes `extraPackages` and `nix-ldLibraries`.
 
@@ -153,11 +188,12 @@ user with `selfManagedHome` — their own `~/.config/home-manager/home.nix`.
 |---|---|---|---|
 | `networking.enable` | toggle | `false` | NetworkManager |
 | `networking.wifi.enable` | toggle | `false` | Wi-Fi backend |
-| `networking.firewall.enable` | toggle | `false` | Apply `firewall.config`; the NixOS firewall itself is on regardless |
+| `networking.firewall.enable` | nullOr bool | `null` | `null` keeps the NixOS firewall at its default, which is on; `true`/`false` set it explicitly. `false` is rejected on a fleet host |
 | `networking.firewall.config` | attrs | `{}` | Merged into `networking.firewall` |
 | `sharing.enable` | toggle | `false` | Services that expose this machine to the network |
 | `sharing.ssh.enable` | toggle | `false` | SSH server |
 | `sharing.ssh.config` | attrs | `{}` | Merged into `services.openssh` |
+| `sharing.rdp.enable` | toggle | `false` | Host a remote desktop (GNOME RDP). Off even with GNOME; connecting to other machines needs nothing here |
 
 Topology — addresses, routes, VLANs, bridges, a DHCP server — is not wrapped.
 Write it as `networking.*` or `systemd.network.*` options in the host directory,
@@ -169,6 +205,7 @@ for example in a `network.nix`.
 |---|---|---|---|
 | `containers.enable` | toggle | `false` | Docker (rootful and rootless) and Podman |
 | `containers.extraPackages` | listOf package | `[]` | Extra container tooling |
+| `containers.registries` | listOf str | `docker.io`, `quay.io`, `ghcr.io`, `registry.k8s.io` | Registries images may come from; Podman, skopeo and buildah reject any other source. Docker has no equivalent control |
 | `virtualisation.enable` | toggle | `false` | KVM, QEMU, libvirt, virt-manager |
 | `virtualisation.extraPackages` | listOf package | `[]` | Extra virtualisation packages |
 
@@ -188,6 +225,8 @@ for example in a `network.nix`.
 | `desktop.fonts.packages` | listOf package | `[]` | **Replaces** the curated font set |
 | `desktop.fonts.extraPackages` | listOf package | `[]` | **Appends** to the font set |
 | `desktop.multimedia.enable` | toggle | `false` | Audio and video stack |
+| `desktop.printing.enable` | bool | `true` | Print to network printers: CUPS on localhost, driverless discovery, Avahi discover-only |
+| `desktop.idleLockSeconds` | int | `600` | Idle time before the session locks. dconf policy on GNOME; a system-level `swayidle` unit on bare Hyprland and Sway. `0` disables it |
 
 `desktop.multimedia` also takes `extraPackages` and `nix-ldLibraries`.
 
@@ -240,7 +279,47 @@ accept `configPath` for a local path and `configRepo` for a remote one.
 |---|---|---|---|
 | `fleet.repo.url` | nullOr str | `null` | Git remote the machine is deployed from |
 | `fleet.repo.ref` | str | `"main"` | Branch or tag to track |
+| `fleet.repo.deployKeySecret` | nullOr str | `null` | Key in `conf.secrets.file` with a read-only SSH deploy key for a private remote |
 | `fleet.localPath` | str | `"/etc/nixos"` | Where the configuration checkout lives |
+| `fleet.signing.allowedSignersFile` | nullOr path | `null` | SSH allowed-signers file every fetched commit must be signed by. Required when `repo.url` is set |
+
+### `conf.secrets`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `secrets.file` | nullOr path | `null` | sops-encrypted file with this host's secrets. `null` keeps the sops machinery off |
+
+Each machine holds its own age key at `/var/lib/sops-nix/key.txt`; `os-install`
+generates it and prints the public half, and a machine installed another way
+generates one on first activation (`age-keygen -y /var/lib/sops-nix/key.txt`
+prints it afterwards). Public keys go into `.sops.yaml`; secrets are encrypted
+with `sops` and committed — only ciphertext ever enters the repository.
+
+Two kinds of secret file exist:
+
+- **Per user: `users/<name>/secrets.yaml`**, with a `password` key holding the
+  account's `mkpasswd -m yescrypt` hash. Its presence is enough: the hash is
+  applied on every activation to every host that declares the account, which is
+  also how a password is rotated. Encrypt it to every such host plus an
+  administrator key, and run `sops updatekeys` when a host is added.
+- **Per host: `conf.secrets.file`**, for things that belong to the machine —
+  a read-only deploy key (`fleet.repo.deployKeySecret`), certificates.
+
+```yaml
+# .sops.yaml
+keys:
+  - &admin age1...
+  - &laptop1 age1...
+  - &server1 age1...
+creation_rules:
+  - path_regex: users/alice/secrets\.yaml$
+    key_groups: [{ age: [*admin, *laptop1, *server1] }]
+  - path_regex: hosts/server1/secrets\.yaml$
+    key_groups: [{ age: [*admin, *server1] }]
+```
+
+Anyone with root on a machine can read the secrets encrypted to it — which is
+no more than root can read from `/etc/shadow` already.
 | `fleet.autoUpdate.enable` | nullOr bool | `null` | Periodic sync and rebuild. `null` means on when `repo.url` is set |
 | `fleet.autoUpdate.dates` | str | `"04:00"` | systemd `OnCalendar` expression |
 | `fleet.autoUpdate.randomizedDelaySec` | int | `1800` | Jitter, so a fleet does not sync simultaneously |
@@ -262,10 +341,22 @@ syntax. Roles inherit from one another; `developer` and `gaming` build on
 |---|---|
 | `minimal` | networking |
 | `server` | networking, containers, virtualisation, development with `sdk.base` |
-| `workstation` | networking and Wi-Fi, bluetooth, graphics, power, desktop with multimedia, flatpak |
+| `workstation` | networking, graphics, desktop with multimedia, flatpak |
 | `developer` | the workstation set, plus containers, virtualisation and development with `sdk.base`, `sdk.cpp` and neovim |
 | `gaming` | the workstation set |
 | `embedded` | networking, development with `sdk.base` and `sdk.cpp` |
+
+### Machine types
+
+A machine type is what the machine physically is, orthogonal to its role. The
+defaults it sets are `lib.mkDefault` too.
+
+| Type | Sets |
+|---|---|
+| `laptop` | Wi-Fi, Bluetooth, power management, thermald on Intel, sensors; hibernation stays available |
+| `desktop` | power management, firmware updates |
+| `headless` | `protectKernelImage` (no kexec, no hibernation), no removable-media automount, `nix.settings.allowed-users = [ "@wheel" ]`, firewall logs refused connections |
+| `vm` | `protectKernelImage`, QEMU guest agent, SPICE agent when a desktop is on |
 
 ```nix
 # hosts/my-laptop/default.nix
@@ -356,11 +447,60 @@ declared on both platforms; a platform implements what it can and ignores the
 rest. `conf.desktop`, `conf.sharing`, `conf.networking`, `conf.flatpak` and
 `conf.fleet` have no Darwin implementation today.
 
+**Hardened defaults are defaults.** Every Linux host gets a kernel and service
+posture from `modules/linux/baseline/` and the concern modules, all
+`lib.mkDefault`, so a plain assignment in the host file overrides any of it.
+The ones most likely to be noticed: `kernel.yama.ptrace_scope = 1` (a debugger
+attaches to its own children; attaching to another process of yours needs
+`sudo`); the systemd-boot menu does not allow editing the kernel command line
+and keeps ten generations; DNS goes through `systemd-resolved` with
+opportunistic DNS-over-TLS; `sshd` only admits members of `ssh-users`, which
+privileged users join automatically and others join with
+`groups = [ "ssh-users" ]`; `sshguard` runs whenever password authentication is
+on; desktops run CUPS and Avahi for printer discovery, which opens UDP 5353 but
+advertises nothing; core dumps are logged but not stored.
+
 **System outputs must evaluate without `--impure`.** `nix run .#check-purity`
 enforces it. Reading machine state during evaluation, such as `/etc/os-release`,
 describes the builder rather than the target and breaks automated rebuilds. Use
 `conf.platform` instead. `home-switch` does need `--impure`, because a user's own
 configuration lives outside the flake.
+
+**root is locked, and stays locked.** `users.users.root.hashedPassword` is `"!"`
+and is re-applied on every activation, so a password set with `passwd` does not
+survive the next rebuild. Rescue is an administrator with sudo, an earlier
+generation from the boot menu, or installer media and `nixos-enter`. The
+initrd emergency shell is already closed by NixOS's default
+`boot.initrd.systemd.emergencyAccess`.
+
+**Accounts without a password hash are created locked.** With
+`initialHashedPassword` at its `null` default, an account can be reached only
+through `sshKeys` or by an administrator setting a password. On a fleet host,
+leaving SSH password authentication on produces a warning.
+
+**The sync refuses unsigned configuration, plain `http://` remotes, and a
+checkout it does not own.** `conf.fleet.signing.allowedSignersFile` is required
+alongside `repo.url`; `http://` fails evaluation; and the sync exits before
+building if `localPath` is not root-owned or is group- or world-writable. An
+`ssh://` remote additionally needs the Git host in `programs.ssh.knownHosts`,
+since root has no `known_hosts` of its own.
+
+**Fleet hosts have immutable accounts.** `users.mutableUsers` is false whenever
+`fleet.repo.url` is set: activation rewrites `/etc/passwd` and `/etc/shadow`, so
+a locally added user or a changed password does not survive the next sync.
+Passwords then come from `passwordSecret`; an account without one is locked.
+
+**Every Linux host audits.** `auditd` records commands run as root by a
+logged-in person, and writes to the configuration checkout, the system
+profiles, identity files, `/etc/ssh` and, where Flatpak is on, `/var/lib/flatpak`.
+`ausearch -k root-exec` reads the first; the journal is capped at 1 GiB and
+90 days. Log shipping is not configured.
+
+**Sessions lock on idle.** GNOME gets a locked dconf policy; Hyprland without a
+shell and Sway get a system-level `swayidle` unit that also locks before sleep
+and on `loginctl lock-session`. Shells such as DMS, Noctalia and Caelestia
+handle idle themselves and are left alone. A user with sudo can mask the unit;
+that is for attestation to notice, not for the unit to prevent.
 
 **Automatic updates discard local edits.** With `resetLocalChanges` on, which is
 the default, the checkout is hard reset to the tracked ref before building, so
@@ -394,9 +534,9 @@ ref, which may not match the system it just installed.
 | `nixpkgs` | nixos-26.05 | base packages and modules |
 | `nixpkgs-unstable` | nixos-unstable | occasional newer packages |
 | `nix-darwin` | nix-darwin-26.05 | macOS support |
-| `home-manager` | master | per-user environments |
+| `home-manager` | release-26.05 | per-user environments |
 | `dms` | stable | DankMaterialShell |
-| `noctalia` / `noctalia-greeter` | main | Noctalia shell and greeter |
+| `noctalia` | main | Noctalia shell |
 | `caelestia-shell` | main | Caelestia shell |
 | `disko` | master | declarative disk partitioning |
 | `apple-fonts` | main | SF Pro and SF Mono |

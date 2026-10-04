@@ -20,8 +20,9 @@ in {
     };
     settings = {
       experimental-features = [ "nix-command" "flakes" ];
-      extra-substituters = [ "https://noctalia.cachix.org" ];
-      extra-trusted-public-keys = [ "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4=" ];
+      # On a server, only administrators drive the daemon; a workstation keeps
+      # the default so its user can build.
+      allowed-users = lib.mkIf (config.conf.platform == "nixos" && config.conf.machineType == "headless") (lib.mkDefault [ "@wheel" ]);
     };
   };
 

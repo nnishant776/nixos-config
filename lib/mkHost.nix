@@ -58,8 +58,8 @@ in
         ../modules/linux
         inputs.home-manager.nixosModules.home-manager
         inputs.noctalia.nixosModules.default
-        inputs.noctalia-greeter.nixosModules.default
         inputs.disko.nixosModules.disko
+        inputs.sops-nix.nixosModules.sops
         inputs.dms.nixosModules.dank-material-shell
       ];
       specialArgs = { inherit inputs flakeLib; };
@@ -70,6 +70,7 @@ in
         { conf.platform = "darwin"; }
         ../modules/darwin
         inputs.home-manager.darwinModules.home-manager
+        inputs.sops-nix.darwinModules.sops
       ];
       specialArgs = { inherit inputs flakeLib; };
     }

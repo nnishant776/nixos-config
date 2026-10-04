@@ -13,5 +13,7 @@
     ./flatpak.nix
     ./development
     ./fleet
+    ./secrets
+    ./audit
   ];
 }

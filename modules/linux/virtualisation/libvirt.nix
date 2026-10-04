@@ -20,7 +20,8 @@ in {
       enable = true;
       qemu = {
         package = pkgs.qemu_kvm;
-        runAsRoot = true;
+        # QEMU runs as the qemu-libvirtd user; a guest escape is not root.
+        runAsRoot = lib.mkDefault false;
         swtpm.enable = true;
         # ovmf.enable = true; // Deprecated
       };

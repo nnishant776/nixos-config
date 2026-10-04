@@ -12,5 +12,6 @@
     ./flatpak.nix
     ./homebrew.nix
     ./fleet.nix
+    ./secrets.nix
   ];
 }

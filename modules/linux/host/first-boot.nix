@@ -11,8 +11,11 @@
         ConditionPathExists = "!/var/lib/run-once-on-first-boot.done";
       };
 
+      # Writes a marker under /root and /var/lib on first boot; nothing to
+      # sandbox beyond a private /tmp.
       serviceConfig = {
         Type = "oneshot";
+        PrivateTmp = true;
         RemainAfterExit = true;
       };
 

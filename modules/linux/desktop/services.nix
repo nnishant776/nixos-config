@@ -11,6 +11,7 @@
       gvfs.enable = true;                   # GNOME Virtual File System
       displayManager.enable = true;         # Display manager support
       accounts-daemon.enable = true;        # User accounts DBus service
+      udisks2.enable = true;                # Removable media automount
     };
 
     # Desktop implications.

@@ -1,6 +1,6 @@
 { ... }: {
   imports = [
-    ./ssh.nix
-    ./rdp.nix
+    ./sops.nix
+    ./users.nix
   ];
 }

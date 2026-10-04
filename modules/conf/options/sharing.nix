@@ -9,5 +9,6 @@
         description = "Merged into `services.openssh`.";
       };
     };
+    rdp.enable = lib.mkEnableOption "hosting a remote desktop (GNOME RDP). Connecting to other machines needs nothing here";
   };
 }

@@ -39,8 +39,8 @@ let
     ++ lib.optionals dev.tools.rtk.enable dev.tools.rtk.nix-ldLibraries
   ;
 in {
-  # Enable nix-ld for precompiled dynamic binary execution
-  config.programs.nix-ld.enable = true;
+  # nix-ld, for running downloaded binaries, follows the development stack.
+  config.programs.nix-ld.enable = lib.mkDefault dev.enable;
 
   # Host-wide default libraries, plus development runtime libraries exported
   # via nix-ld (Linux only)

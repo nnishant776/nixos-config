@@ -4,6 +4,7 @@
 
   conf = {
     role = "workstation";
+    machineType = "vm";
 
     host.name = "virtual";
 

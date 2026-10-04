@@ -39,9 +39,19 @@ let
         '';
       };
       initialHashedPassword = lib.mkOption {
-        type = lib.types.str;
-        default = "$y$j9T$Em3GOBdeSlR5rvnBakCQt1$MNH7/4KvTt423qqDDHsSUAz96SCUWm5AKMqjy5hzFS3";
-        description = "Initial hashed password (change after install).";
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = ''
+          Password hash applied when the account is first created, in
+          `mkpasswd -m yescrypt` format. `null` creates the account locked, so
+          it is reached with an SSH key or by an administrator setting a
+          password. Secrets management will replace this with a file.
+        '';
+      };
+      sshKeys = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = "SSH public keys accepted for this account.";
       };
       manageAccount = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
@@ -131,6 +141,10 @@ in {
         Interactive accounts on this machine, keyed by username. Service and
         system accounts do not belong here; they are created by the modules
         that need them.
+
+        A sops-encrypted `users/<name>/secrets.yaml` with a `password` key
+        supplies the account's password hash on every activation; see
+        `conf.secrets`.
       '';
     };
   };
