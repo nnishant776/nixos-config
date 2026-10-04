@@ -10,6 +10,7 @@ environments. Machines are declared under `hosts/`, per-user configuration under
 ```
 ├── flake.nix                        # entry point; discovers hosts/
 ├── lib/
+│   ├── apps/                        # os-install, system-switch, home-switch, check-purity
 │   ├── mkHost.nix                   # host factory (NixOS / nix-darwin)
 │   ├── buildUser.nix                # assembles a user's Home Manager modules
 │   ├── mkUser.nix                   # standalone Home Manager builder

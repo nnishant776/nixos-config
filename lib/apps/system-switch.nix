@@ -1,0 +1,28 @@
+# No --impure here: the system configurations evaluate purely, and
+# passing it would hide a regression that `check-purity` exists to catch.
+{ pkgs }:
+pkgs.writeShellApplication {
+  name = "system-switch";
+  runtimeInputs = [ ];
+  text = ''
+    host="''${1:-$(uname -n)}"
+    flakePath="''${2:-/etc/nixos}"
+    os="$(uname)"
+
+    if [ ! -e "$flakePath/flake.nix" ]; then
+      echo "system-switch: no flake at $flakePath" >&2
+      echo "usage: system-switch [hostname] [flake path]" >&2
+      exit 1
+    fi
+
+    if [ "$os" = "Darwin" ]; then
+      exec sudo nix run nix-darwin -- switch --flake "$flakePath#$host"
+    else
+      if grep -qi "nixos" /etc/os-release > /dev/null 2>&1; then
+        exec sudo nixos-rebuild switch --flake "$flakePath#$host"
+      else
+        exec sudo nix run system-manager -- switch --flake "$flakePath#$host"
+      fi
+    fi
+  '';
+}
