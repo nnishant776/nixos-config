@@ -1,12 +1,15 @@
 # Encrypted disk layout: an unencrypted ESP, then LUKS2 over the rest of the
 # disk with LVM inside — a swap volume sized for hibernation and an ext4 root.
 # Copy this file to hosts/<name>/disko-config.nix (every .nix file in a host
-# directory is imported) and set `device` and the swap size.
+# directory is imported) and set the swap size. `device` is only a default on
+# UEFI: os-install asks which disk to use, or takes it with -d. The swap is
+# also what os-install pages to during installation, so 8G or more helps a
+# machine with little RAM.
 #
-# At install time disko reads the passphrase from /tmp/disk.key, which
-# os-install prompts for. With conf.hardware.boot.tpm2Unlock the TPM is
-# enrolled as a second unlock method after installation; the passphrase stays
-# as the fallback.
+# disko asks for the passphrase while formatting (askPassword, the default
+# when no password file is given). With conf.hardware.boot.tpm2Unlock the TPM
+# can be enrolled as a second unlock method after the first boot — os-install
+# prints the command; the passphrase stays as the fallback.
 { config, lib, ... }:
 {
   disko.devices = {
@@ -35,7 +38,6 @@
             content = {
               type = "luks";
               name = "cryptroot";
-              passwordFile = "/tmp/disk.key";
               settings.allowDiscards = true;
               content = {
                 type = "lvm_pv";

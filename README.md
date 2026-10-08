@@ -78,26 +78,50 @@ home-manager switch --flake /etc/nixos --impure   # the bare CLI resolves <user>
 ### Installing a machine
 
 ```bash
-nix run .#os-install -- <hostname>
+nix run .#os-install                                   # pick the host and the disk from lists
+nix run .#os-install -- -H my-laptop -d /dev/nvme0n1    # or give them as flags
+nix run .#os-install -- --help
 ```
 
-This partitions the disks with disko, installs the system without asking for a
-root password — root is locked by the configuration and administration goes
-through sudo — and clones `conf.fleet.repo.url` into `conf.fleet.localPath`
-pinned to the installed revision.
+The host's disk layout is declared in `hosts/<name>/disko-config.nix`.
+`os-install` only needs to know which host and which physical disk: anything
+not given as a flag is chosen from a dropdown (`fzf`, fetched with the app, so
+nothing has to be installed first). The disk list leaves out the installer's
+own boot medium. It shows what will be erased and asks for the host name as
+confirmation (`--yes` skips that), re-running itself with sudo if needed. `-d`
+takes `NAME=DEVICE` when a layout declares more than one disk.
+
+The live ISO keeps its writable store in RAM, so the install is arranged to
+keep the system off it. The host's disko script partitions, formats and mounts
+the disks at `/mnt`; `os-install` then turns on the swap the layout declares;
+and `nixos-install` builds and downloads straight into `/mnt/nix/store`, with
+its scratch space on the new disk and anything the ISO already holds copied
+rather than downloaded. Only evaluating the configuration uses the installer's
+RAM, and with swap on, that can page to the new disk. The system is installed
+without a root password — root is locked by the configuration and
+administration goes through sudo. A firmware boot entry is written when the
+host sets `conf.hardware.boot.efiVariables`. A BIOS host must have the right
+device in its layout, since GRUB installs to that one; `os-install` refuses a
+different `-d` for it.
+
+On first boot with network, a fleet host (one with `conf.fleet.repo.url`)
+clones its configuration into `conf.fleet.localPath` at the revision it was
+built from, and keeps retrying until it has a network. The sync starts from
+that checkout.
 
 For an encrypted layout, start from `templates/disko-luks.nix`: copy it to
-`hosts/<name>/disko-config.nix` and set the device and swap size. `os-install`
-then asks for the passphrase once before partitioning, and with
-`conf.hardware.boot.tpm2Unlock` enrols the TPM (PCR 7) as a second unlock method
-after installation. On a machine without a TPM the enrolment is skipped with a
-warning and the passphrase stays the only method; at boot the TPM option simply
-falls through to the passphrase prompt. A host with `conf.secrets.file` also
-gets its age key generated at install, with the public half printed for
-`.sops.yaml`.
+`hosts/<name>/disko-config.nix` and set the swap size. disko asks for the
+passphrase while formatting. Two things stay manual after the first boot,
+because neither can happen before the machine exists, and `os-install` prints
+both when they apply: enrolling the TPM as a second unlock method when
+`conf.hardware.boot.tpm2Unlock` is set (`systemd-cryptenroll
+--tpm2-device=auto --tpm2-pcrs=7 <luks device>`, asking for the passphrase), and
+adding the machine's age key to `.sops.yaml` when it has secrets (`sudo
+age-keygen -y /var/lib/sops-nix/key.txt`). Without a TPM chip the passphrase is
+simply the only method; the TPM option falls through to it at boot.
 
 **Fleet machines pull; they cannot push.** The checkout's push URL is set to an
-unusable value at install and re-applied on every sync, so a `git push` from a
+unusable value by the first-boot clone and re-applied on every sync, so a `git push` from a
 fleet machine fails. That is hygiene; the control is the credential: a public
 repository needs none, and a private one gets a deploy key with read access
 only, through `fleet.repo.deployKeySecret`.

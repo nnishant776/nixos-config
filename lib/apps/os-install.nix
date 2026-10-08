@@ -1,120 +1,216 @@
+# Installs a host from this flake onto a machine booted from installer media.
+#
+# The live ISO keeps its writable store and / on tmpfs, so anything built or
+# downloaded there lives in RAM. Installing therefore happens in two steps that
+# keep the system off the installer:
+#
+#   1. The host's disko script partitions, formats and mounts the disks at
+#      /mnt; then the swap the layout declares is turned on, so the evaluation
+#      in step 2 can spill to the new disk instead of exhausting RAM.
+#   2. nixos-install builds and downloads straight into /mnt/nix/store, with
+#      its scratch space on /mnt too, reusing whatever the ISO already holds.
+#
+# The host and the target disks come from flags or from pickers.
 { pkgs, self }:
 pkgs.writeShellApplication {
   name = "os-install";
-  runtimeInputs = with pkgs; [ jq git age systemd ];
+  runtimeInputs = with pkgs; [ jq fzf util-linux coreutils nixos-install-tools ];
   text = ''
-    if [ "$(uname)" = "Darwin" ]; then
-      echo "Command not supported on this system"
-      exit 1
+    usage() {
+      cat >&2 <<'EOF'
+    usage: os-install [-H HOST] [-d [NAME=]DEVICE]... [--flake REF] [--yes]
+
+      -H, --host HOST        host to install (a directory under hosts/)
+      -d, --disk [NAME=]DEV  physical device for a disk in the host's layout;
+                             NAME may be omitted when the layout has one disk
+          --flake REF        flake to install from (default: the one running this)
+      -y, --yes              do not ask for confirmation before erasing
+
+    Anything not given as a flag is chosen from a list, when run in a terminal.
+    Whether a firmware boot entry is written follows the host's
+    conf.hardware.boot.efiVariables.
+    EOF
+      exit "''${1:-1}"
+    }
+
+    # Partitioning and installing both need root. On the NixOS ISO the default
+    # user has passwordless sudo.
+    if [ "$(id -u)" -ne 0 ]; then
+      exec sudo "$0" "$@"
     fi
 
-    host="''${1:-}"
+    # path: so Nix reads the store copy as a plain directory; a bare store path
+    # is taken for a git repository, which root-owned store paths fail as.
+    flake="path:${self}"
+    host=""
+    assumeYes=false
+    confirm=""
+    declare -A disks=()
+    unnamedDisk=""
+
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -H|--host)  host="''${2:?--host needs a value}"; shift 2 ;;
+        -d|--disk)
+          case "''${2:?--disk needs a value}" in
+            *=*) disks["''${2%%=*}"]="''${2#*=}" ;;
+            *)   unnamedDisk="$2" ;;
+          esac
+          shift 2 ;;
+        --flake)    flake="''${2:?--flake needs a value}"; shift 2 ;;
+        -y|--yes)   assumeYes=true; shift ;;
+        -h|--help)  usage 0 ;;
+        *)          echo "os-install: unknown argument '$1'" >&2; usage ;;
+      esac
+    done
+
+    interactive=false
+    [ -t 0 ] && [ -t 1 ] && interactive=true
+
+    need() {  # need WHAT — fail when a value is missing and there is no terminal
+      if ! $interactive; then
+        echo "os-install: $1 not given, and there is no terminal to choose in" >&2
+        usage
+      fi
+    }
+
+    pick() {  # pick HEADER — a dropdown over stdin, printing the chosen line
+      fzf --height=40% --layout=reverse --border --no-multi --header="$1" \
+        || { echo "os-install: nothing chosen; nothing was changed" >&2; exit 1; }
+    }
 
     if [ -z "$host" ]; then
-      echo "usage: os-install <hostname>" >&2
+      need "the host"
+      host="$(nix eval --json "$flake#nixosConfigurations" --apply builtins.attrNames \
+        | jq -r '.[]' | pick "Host to install from $flake")"
+    fi
+
+    # Everything about the host this needs, in one evaluation.
+    facts="$(nix eval --json "$flake#nixosConfigurations.$host.config" --apply 'c: {
+      disks = builtins.mapAttrs (_: d: d.device) c.disko.devices.disk;
+      swap = map (s: s.device) c.swapDevices;
+      bios = c.conf.hardware.boot.mode == "bios";
+      luks = builtins.attrValues (builtins.mapAttrs (_: d: d.device) c.boot.initrd.luks.devices);
+      tpm2 = c.conf.hardware.boot.tpm2Unlock;
+      secrets = c.conf.secrets.file != null;
+      repo = c.conf.fleet.repo.url;
+    }')"
+
+    mapfile -t declared < <(jq -r '.disks | keys[]' <<<"$facts")
+    if [ "''${#declared[@]}" -eq 0 ]; then
+      echo "os-install: host '$host' declares no disko layout (hosts/$host/disko-config.nix)" >&2
       exit 1
     fi
 
-    # Everything about the host this script needs, in one evaluation.
-    facts="$(nix eval --json "${self}#nixosConfigurations.''${host}.config" --apply 'c: {
-      luks = builtins.mapAttrs (_: d: d.device) c.boot.initrd.luks.devices;
-      tpm2 = c.conf.hardware.boot.tpm2Unlock;
-      secrets = c.conf.secrets.file != null;
-      fleet = c.conf.fleet;
-    }')"
-
-    # An encrypted layout reads its passphrase from /tmp/disk.key (see
-    # templates/disko-luks.nix). Ask once, before partitioning.
-    if [ "$(printf '%s' "$facts" | jq '.luks | length')" -gt 0 ] && [ ! -s /tmp/disk.key ]; then
-      read -r -s -p "LUKS passphrase for $host: " passphrase; echo
-      read -r -s -p "Again: " passphrase2; echo
-      if [ "$passphrase" != "$passphrase2" ]; then
-        echo "error: passphrases differ" >&2
+    if [ -n "$unnamedDisk" ]; then
+      if [ "''${#declared[@]}" -ne 1 ]; then
+        echo "os-install: '$host' declares disks ''${declared[*]}; name the one '$unnamedDisk' is for: -d NAME=$unnamedDisk" >&2
         exit 1
       fi
-      (umask 077; printf '%s' "$passphrase" > /tmp/disk.key)
-      unset passphrase passphrase2
+      disks["''${declared[0]}"]="$unnamedDisk"
     fi
 
-    if [ -f /root/.disko-partitioning.done ]; then
-      echo "warning: partitioning already done for host '$host', skipping disko" >&2
-    else
-      diskoScript="$(nix build --no-link --print-out-paths "${self}#nixosConfigurations.''${host}.config.system.build.diskoScript")"
-      if "$diskoScript"; then
-        touch /root/.disko-partitioning.done
-        for swap in /dev/disk/by-partlabel/*swap*; do
-          if [ -e "$swap" ]; then swapon "$swap"; fi
-        done
-      else
-        echo "error: disko partitioning failed for host '$host'" >&2
+    # The disk this installer booted from is never offered.
+    bootMedium=""
+    if src="$(findmnt -no SOURCE /iso 2>/dev/null)" && [ -n "$src" ]; then
+      bootMedium="/dev/$(lsblk -no PKNAME "$src" | head -1)"
+    fi
+
+    for name in "''${declared[@]}"; do
+      if [ -z "''${disks[$name]:-}" ]; then
+        need "a device for disk '$name'"
+        taken=" ''${disks[*]} $bootMedium "
+        disks[$name]="$(lsblk --nodeps --noheadings --exclude 7,11 --output PATH,SIZE,TRAN,MODEL \
+          | while read -r path rest; do
+              case "$taken" in *" $path "*) ;; *) printf '%-14s %s\n' "$path" "$rest" ;; esac
+            done \
+          | pick "Device for disk '$name' of $host (it will be erased)" | cut -d' ' -f1)"
+      fi
+      if [ ! -b "''${disks[$name]}" ]; then
+        echo "os-install: ''${disks[$name]} is not a block device" >&2
+        exit 1
+      fi
+      if [ "''${disks[$name]}" = "$bootMedium" ]; then
+        echo "os-install: ''${disks[$name]} is the installer's own boot medium" >&2
+        exit 1
+      fi
+      # GRUB on BIOS installs to the device written in the layout, not to the
+      # one chosen here, so the two must agree.
+      if [ "$(jq -r '.bios' <<<"$facts")" = true ] \
+         && [ "$(jq -r --arg n "$name" '.disks[$n]' <<<"$facts")" != "''${disks[$name]}" ]; then
+        echo "os-install: '$host' boots with BIOS; set disko.devices.disk.$name.device to ''${disks[$name]} in its layout first" >&2
+        exit 1
+      fi
+    done
+
+    echo
+    echo "Installing $host from $flake"
+    for name in "''${!disks[@]}"; do
+      echo "  $name -> ''${disks[$name]}  (ALL DATA ON IT WILL BE ERASED)"
+    done
+    if ! $assumeYes; then
+      need "confirmation (or --yes)"
+      read -r -p "Type the host name to continue: " confirm
+      if [ "$confirm" != "$host" ]; then
+        echo "os-install: not confirmed; nothing was changed" >&2
         exit 1
       fi
     fi
 
-    # No interactive root password: root is locked by the configuration
-    # and administration goes through sudo.
-    nixos-install --root /mnt --no-root-passwd --flake "${self}#$host"
+    # Step 1: the host's disko script with the chosen devices patched in.
+    mapping="{}"
+    for name in "''${!disks[@]}"; do
+      mapping="$(jq -c --arg n "$name" --arg d "''${disks[$name]}" '. + {($n): $d}' <<<"$mapping")"
+    done
+    export OS_INSTALL_DISKS="$mapping" OS_INSTALL_FLAKE="$flake" OS_INSTALL_HOST="$host"
+    # shellcheck disable=SC2016 # a Nix expression; its interpolations are for Nix, not bash
+    diskoScript="$(nix build --impure --no-link --print-out-paths --expr '
+      let
+        flake = builtins.getFlake (builtins.getEnv "OS_INSTALL_FLAKE");
+        host = flake.nixosConfigurations.''${builtins.getEnv "OS_INSTALL_HOST"};
+        devices = builtins.fromJSON (builtins.getEnv "OS_INSTALL_DISKS");
+        patched = host.extendModules { modules = [{
+          disko.devices.disk = builtins.mapAttrs
+            (_: device: { device = flake.inputs.nixpkgs.lib.mkForce device; }) devices;
+        }]; };
+      in patched.config.system.build.diskoScript')"
 
-    # TPM enrolment as a second unlock method; the passphrase stays as
-    # the fallback. PCR 7 (Secure Boot state) only, so a kernel update
-    # does not lock the machine out.
-    if [ "$(printf '%s' "$facts" | jq -r '.tpm2')" = "true" ]; then
-      if [ -e /sys/class/tpm/tpm0 ]; then
-        mapfile -t luksDevices < <(printf '%s' "$facts" | jq -r '.luks[]')
-        for dev in "''${luksDevices[@]}"; do
-          echo "enrolling TPM2 on $dev"
-          systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 --unlock-key-file=/tmp/disk.key "$dev"
-        done
-      else
-        # Not fatal: the crypttab option falls back to the passphrase at
-        # boot, so the machine is still usable, just without the TPM.
-        echo "warning: conf.hardware.boot.tpm2Unlock is set but this machine has no TPM2; skipping enrolment, the passphrase is the only unlock method" >&2
+    # Wipes, formats and mounts at /mnt. An encrypted layout asks for its
+    # passphrase here.
+    "$diskoScript"
+
+    # disko formats swap but its mount step leaves it off (its fs entries are
+    # ordered by mount point, and swap has none), so turn on what the host
+    # declares. The evaluation and build in step 2 can then page to the new
+    # disk; on an encrypted layout the swap is inside LUKS.
+    while read -r swap; do
+      if [ -b "$swap" ] && ! swapon --show=NAME --noheadings | grep -qx "$(readlink -f "$swap")"; then
+        if swapon "$swap"; then
+          echo "os-install: swap on $swap"
+        else
+          echo "os-install: warning: could not turn on swap $swap; continuing in RAM only" >&2
+        fi
       fi
+    done < <(jq -r '.swap[]' <<<"$facts")
+
+    # Step 2: build and download straight onto the new disk.
+    nixos-install --flake "$flake#$host" --root /mnt --no-root-passwd --no-channel-copy
+
+    swapoff --all || true
+
+    echo
+    echo "Installed $host. Remove the installer media and reboot. Then:"
+    if [ "$(jq -r '.repo != null' <<<"$facts")" = true ]; then
+      echo "  - On first boot with network, the machine clones its configuration into"
+      echo "    /etc/nixos and starts syncing from it."
     fi
-    rm -f /tmp/disk.key
-
-    # A host with secrets gets its age key now, so its secrets can be
-    # encrypted to it before the machine first boots. The public half is
-    # what goes into .sops.yaml.
-    if [ "$(printf '%s' "$facts" | jq -r '.secrets')" = "true" ]; then
-      install -d -m 700 /mnt/var/lib/sops-nix
-      if [ ! -s /mnt/var/lib/sops-nix/key.txt ]; then
-        (umask 077; age-keygen -o /mnt/var/lib/sops-nix/key.txt 2>/dev/null)
-      fi
-      echo "age public key for $host (add to .sops.yaml): $(age-keygen -y /mnt/var/lib/sops-nix/key.txt)"
+    if [ "$(jq -r '.tpm2' <<<"$facts")" = true ]; then
+      echo "  - To unlock with the TPM as well as the passphrase (needs a TPM2 chip):"
+      jq -r '.luks[] | "      sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 " + .' <<<"$facts"
     fi
-
-    # Clone the configuration so that the machine has a git revision
-    # describing what it runs.
-    repoUrl="$(printf '%s' "$facts" | jq -r '.fleet.repo.url // ""')"
-    repoRef="$(printf '%s' "$facts" | jq -r '.fleet.repo.ref')"
-    localPath="$(printf '%s' "$facts" | jq -r '.fleet.localPath')"
-
-    if [ -z "$repoUrl" ]; then
-      echo "notice: host '$host' declares no upstream repository (conf.fleet.repo.url is null)" >&2
-      echo "notice: leaving '$localPath' empty" >&2
-      exit 0
+    if [ "$(jq -r '.secrets' <<<"$facts")" = true ]; then
+      echo "  - Add the machine's age key to .sops.yaml, then run sops updatekeys:"
+      echo "      sudo age-keygen -y /var/lib/sops-nix/key.txt"
     fi
-
-    git clone --branch "$repoRef" "$repoUrl" "/mnt''${localPath}"
-    # Fleet machines pull. The push URL is made unusable so a stray push
-    # from this checkout fails; the sync re-applies it on every run.
-    git -C "/mnt''${localPath}" remote set-url --push origin no_push
-
-    # self.rev only: self.dirtyRev carries a "-dirty" suffix and is not a
-    # revision anything can be checked out to.
-    installedRev="${self.rev or ""}"
-
-    if [ -z "$installedRev" ]; then
-      echo "WARNING: installed from a working tree with no commit (uncommitted changes), so there is no revision to pin to" >&2
-      echo "WARNING: '$localPath' is left at the tip of '$repoRef' and may not match the system just installed" >&2
-    else
-      if ! git -C "/mnt''${localPath}" checkout "$installedRev"; then
-        echo "WARNING: revision '$installedRev' not found in '$repoUrl'; checkout is left at the tip of '$repoRef' and does NOT match the installed system; the machine will converge on the next sync" >&2
-      fi
-    fi
-
-    finalRev="$(git -C "/mnt''${localPath}" rev-parse HEAD)"
-    echo "checkout: path=/mnt''${localPath} ref=$repoRef rev=$finalRev"
   '';
 }
