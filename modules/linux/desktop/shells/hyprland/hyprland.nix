@@ -81,6 +81,11 @@ in {
 
       # Session management
       hypridle
+    ] ++ lib.optionals (builtins.elem cfg.environments.hyprland.shell [ "dms" "noctalia" "caelestia" ]) [
+      # Base of the GTK3/GTK4 themes the Hyprland config's customisations/gtk.lua builds
+      # from the DMS/Noctalia palette (GTK's built-in themes ignore its color names);
+      # caelestia-cli sets gtk-theme to adw-gtk3-dark itself
+      adw-gtk3
     ];
   };
 }
