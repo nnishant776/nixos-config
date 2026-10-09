@@ -15,7 +15,7 @@ let
 
   check = pkgs.writeShellApplication {
     name = "org-home-drift";
-    runtimeInputs = [ pkgs.coreutils pkgs.libnotify ];
+    runtimeInputs = [ pkgs.coreutils pkgs.libnotify pkgs.systemd ];
     text = ''
       user="$(id -un)"
       selfManaged=" ${lib.concatStringsSep " " selfManaged} "
@@ -34,6 +34,20 @@ let
       # Recorded in the journal for later reporting; the notification is for
       # the person at the keyboard.
       echo "home drift: user=$user home=$actual system=$expected"
+
+      # The bus is up before graphical-session.target, but the notification
+      # daemon is whatever the session runs (a shell, gnome-shell, mako, ...),
+      # often not a systemd unit, and it claims its name a moment later. Wait
+      # for the name rather than for any unit; if it never appears, leave it to
+      # the next timer tick instead of failing.
+      for _ in $(seq 30); do
+        busctl --user --quiet status org.freedesktop.Notifications >/dev/null 2>&1 && break
+        sleep 2
+      done
+      if ! busctl --user --quiet status org.freedesktop.Notifications >/dev/null 2>&1; then
+        echo "no notification daemon on the session bus after 60 s; will retry on the next check"
+        exit 0
+      fi
 
       # Sent through org.freedesktop.Notifications, so whichever daemon the
       # session runs shows it. Persistence uses spec-level means only: a 0 ms
@@ -92,10 +106,17 @@ in {
       };
 
       # switch-to-configuration restarts nixos-activation in every logged-in
-      # user's manager, which runs this as that user; --no-block so a slow
-      # notification daemon cannot hold up activation.
+      # user's manager, which runs this as that user. wantedBy only takes
+      # effect when graphical-session.target next starts, i.e. at the next
+      # login, so a session that was already running when the switch added or
+      # changed these units would get neither the timer nor the check. Start
+      # both here, but only in a graphical session: an SSH-only session has no
+      # notification daemon to show anything. --no-block so a slow daemon
+      # cannot hold up activation.
       system.userActivationScripts.orgHomeDrift = ''
-        ${pkgs.systemd}/bin/systemctl --user start --no-block org-home-drift.service || true
+        if ${pkgs.systemd}/bin/systemctl --user is-active --quiet graphical-session.target; then
+          ${pkgs.systemd}/bin/systemctl --user start --no-block org-home-drift.timer org-home-drift.service || true
+        fi
       '';
     })
   ];
