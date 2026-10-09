@@ -36,6 +36,21 @@
       };
       efiVariables = lib.mkEnableOption "letting the bootloader write EFI variables";
       tpm2Unlock = lib.mkEnableOption "unlocking LUKS volumes with the TPM at boot (systemd-cryptenroll; the passphrase remains as fallback)";
+      grubPasswordHash = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "grub.pbkdf2.sha512.10000.674DFF...";
+        description = ''
+          GRUB superuser password hash, from `grub-mkpasswd-pbkdf2`. GRUB has no
+          switch to turn off its menu editor, which lets anyone at the keyboard
+          change the kernel command line (`init=/bin/sh`); a superuser does.
+          The current system still boots without a password; editing an entry,
+          the GRUB console and older generations ask for it. Only used when
+          the loader is GRUB; the hash is stored in the open, which is what
+          PBKDF2 hashes are for. It cannot come from `conf.secrets`, since the
+          bootloader is installed before secrets are decrypted.
+        '';
+      };
       splash = {
         enable = lib.mkEnableOption "the boot splash (Plymouth)";
         theme = lib.mkOption {

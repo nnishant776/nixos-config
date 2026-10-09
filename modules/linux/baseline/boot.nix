@@ -27,6 +27,21 @@ in {
     (lib.mkIf (hwdCfg.boot.mode == "bios") {
       conf.hardware.boot.loader = lib.mkDefault "grub";
     })
+
+    # GRUB's counterpart to systemd-boot's editor = false. GRUB cannot turn its
+    # editor off, only put it behind a superuser; NixOS marks the current
+    # entries --unrestricted, so booting stays password-free while editing,
+    # the console and older generations need the password.
+    (lib.mkIf (hwdCfg.boot.loader == "grub") {
+      boot.loader.grub.users = lib.mkIf (hwdCfg.boot.grubPasswordHash != null) {
+        root.hashedPassword = hwdCfg.boot.grubPasswordHash;
+      };
+      warnings = lib.optional (hwdCfg.boot.grubPasswordHash == null)
+        ("conf.hardware.boot on '${config.conf.host.name}': GRUB's menu editor is open,"
+          + " so anyone at the keyboard can edit the kernel command line (init=/bin/sh)."
+          + " Set conf.hardware.boot.grubPasswordHash from grub-mkpasswd-pbkdf2.");
+    })
+
     (lib.mkIf (hwdCfg.boot.splash.enable) {
       boot = {
         plymouth = {
