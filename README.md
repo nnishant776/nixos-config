@@ -241,6 +241,9 @@ user with `selfManagedHome` â€” their own `~/.config/home-manager/home.nix`.
 | `hardware.boot.loader` | nullOr enum: `systemd-boot`/`grub`/`uboot` | `"systemd-boot"` | Bootloader; GRUB when `mode` is `bios` |
 | `hardware.boot.efiVariables` | toggle | `false` | Let the bootloader write EFI variables |
 | `hardware.boot.tpm2Unlock` | toggle | `false` | Unlock LUKS volumes with the TPM at boot; the passphrase stays as fallback. Enrolled by `os-install` |
+| `hardware.boot.splash.enable` | toggle | `false` | Silent boot with a Plymouth splash, including the LUKS passphrase prompt on an encrypted disk. The GPU driver (Intel, AMD) loads in the initrd so the vendor logo is not wiped mid-boot, and udev/systemd status text is suppressed. The generation menu is hidden: press Space during startup on systemd-boot, or Shift/Esc on GRUB, to show it; set `boot.loader.timeout` to keep it visible |
+| `hardware.boot.splash.theme` | str | `"bgrt"` | Plymouth theme; `bgrt` shows the firmware vendor logo |
+| `hardware.boot.splash.themePackages` | listOf package | `[]` | Packages providing `theme`; the themes bundled with Plymouth need none |
 
 `hardware.graphics` also takes `extraPackages` and `nix-ldLibraries`.
 
@@ -306,7 +309,9 @@ host directory is the cost. Everything else goes through the upstream options â€
 cursor theme and font settings. ReGreet does not display user avatars: it reads
 only names and shells from AccountsService and has no icon widget, so avatars a
 user sets in GNOME appear on GNOME's lock screen and user switcher, not at
-login.
+login. The greeter's own output goes to the journal rather than the console,
+so cage's start-up messages never flash on screen; read them with
+`journalctl -t greeter`.
 
 ### `conf.development`
 

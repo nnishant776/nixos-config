@@ -36,6 +36,23 @@
       };
       efiVariables = lib.mkEnableOption "letting the bootloader write EFI variables";
       tpm2Unlock = lib.mkEnableOption "unlocking LUKS volumes with the TPM at boot (systemd-cryptenroll; the passphrase remains as fallback)";
+      splash = {
+        enable = lib.mkEnableOption "the boot splash (Plymouth)";
+        theme = lib.mkOption {
+          type = lib.types.str;
+          default = "bgrt";
+          description = "Plymouth theme. `bgrt` shows the firmware vendor logo.";
+        };
+        themePackages = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = [ ];
+          description = ''
+            Packages providing `theme`. The themes bundled with Plymouth (bgrt,
+            spinner, tribar, fade-in, glow, solar, spinfinity, script, details,
+            text) need none.
+          '';
+        };
+      };
     };
   };
 }

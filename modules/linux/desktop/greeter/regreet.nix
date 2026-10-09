@@ -32,6 +32,21 @@ in {
   config = lib.mkIf cfg.enable {
     programs.regreet.enable = true;
 
+    # The regreet module's own command, with the greeter's output sent to the
+    # journal (journalctl -t greeter). greetd connects the greeter's stdout and
+    # stderr to the VT, and cage logs at wlroots' INFO level by default (it can
+    # only be raised), so its startup lines would otherwise print in blue on
+    # tty1 until cage takes the display. Seat and display access go through
+    # logind, not stdio, so cage is unaffected.
+    services.greetd.settings.default_session.command = lib.concatStringsSep " " [
+      "${pkgs.systemd}/bin/systemd-cat --identifier=greeter --"
+      "${pkgs.dbus}/bin/dbus-run-session"
+      (lib.getExe pkgs.cage)
+      (lib.escapeShellArgs config.programs.regreet.cageArgs)
+      "--"
+      (lib.getExe config.programs.regreet.package)
+    ];
+
     # Set as a whole `settings` value rather than
     # settings.commands.x11_prefix = lib.mkIf ..., since a property inside
     # freeform TOML data would serialise the override marker into the file.

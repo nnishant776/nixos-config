@@ -23,9 +23,14 @@
       selfManagedHome = true;
     };
 
-    hardware.graphics = {
-      enable = true;
-      vendor = "intel";
+    hardware = {
+      boot = {
+        splash.enable = true;
+      };
+      graphics = {
+        enable = true;
+        vendor = "intel";
+      };
     };
     containers.enable = false;     # Explicit override
     virtualisation.enable = false; # Explicit override
