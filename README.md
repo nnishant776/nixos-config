@@ -41,6 +41,40 @@ imports its parts; each part sets its own options under its own `mkIf`.
 
 ## Usage
 
+### First run
+
+On a machine this flake does not configure yet, one command does everything:
+
+```bash
+curl -sSfL https://raw.githubusercontent.com/nnishant776/nixos-config/main/bootstrap | sh -s -- <hostname>
+```
+
+`bootstrap` installs Nix where it is missing — the one step Nix cannot do for
+itself — and then hands over to the flake's own tools:
+
+| Running on | It does |
+|---|---|
+| macOS | installs Lix if needed, then switches to `<hostname>` with the nix-darwin this flake pins |
+| NixOS installer ISO | runs `os-install`; `<hostname>` is optional, and further arguments are passed to it |
+| an installed NixOS host | runs `system-switch` for `<hostname>` (default: this machine's hostname) |
+| another Linux | installs Lix and stops; only Home Manager is supported there |
+
+`FLAKE=github:org/repo/<tag>` in front of `sh` makes it use another flake, or a
+pinned tag so that machines do not follow every commit on `main`. MDM can run
+the same command on a new Mac.
+
+On a Mac, the host is named explicitly the first time, since the machine still
+has its default hostname and the switch is what sets it. The accounts listed in
+`conf.users.accounts` must already exist, normally created by MDM, since
+nix-darwin leaves macOS accounts alone by default. If activation stops with
+"Unexpected files in /etc", the Nix installer wrote a file nix-darwin does not
+recognise; rename it by adding `.before-nix-darwin` and run the command again.
+After the first switch, `sudo darwin-rebuild switch --flake …` is on the PATH.
+
+Without `bootstrap`, from a checkout: on the NixOS ISO,
+`nix --extra-experimental-features 'nix-command flakes' run .#os-install`; on a
+Mac with Nix installed, `sudo nix run .#darwin-rebuild -- switch --flake .#<hostname>`.
+
 ### Adding a machine
 
 Create `hosts/<hostname>/default.nix` with `nixpkgs.hostPlatform` and the

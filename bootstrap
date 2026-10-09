@@ -1,0 +1,87 @@
+#!/bin/sh
+# One command from a bare machine to one configured by this flake:
+#
+#   curl -sSfL https://raw.githubusercontent.com/nnishant776/nixos-config/main/bootstrap | sh -s -- [HOST] [ARGS...]
+#
+# Installing Nix is the one step Nix cannot do for itself, so it lives here;
+# everything after it is the flake's own tooling.
+#
+#   macOS               installs Lix if needed, then switches to HOST with the
+#                       nix-darwin this flake pins
+#   NixOS installer     runs os-install (ARGS are passed through)
+#   installed NixOS     runs system-switch for HOST (default: this hostname)
+#   other Linux         installs Lix; only Home Manager is supported there
+#
+# FLAKE overrides the flake, e.g. FLAKE=github:org/repo/v1.2 or FLAKE=path:.
+# POSIX sh on purpose: macOS ships bash 3.2.
+set -eu
+
+flake="${FLAKE:-github:nnishant776/nixos-config}"
+nixFlags="--extra-experimental-features nix-command --extra-experimental-features flakes"
+
+say() { printf 'bootstrap: %s\n' "$*" >&2; }
+die() { say "$*"; exit 1; }
+
+# Piped from curl, stdin is the script, not the keyboard. Interactive steps
+# (pickers, sudo, prompts) get the terminal back where there is one.
+tty=/dev/null
+if [ -r /dev/tty ] && [ -w /dev/tty ] && (: </dev/tty) 2>/dev/null; then
+  tty=/dev/tty
+fi
+
+ensure_nix() {
+  if command -v nix >/dev/null 2>&1; then
+    return
+  fi
+  say "installing Lix"
+  curl -sSfL https://install.lix.systems/lix | sh -s -- install --no-confirm
+  # The installer edits shell profiles for new shells; this one needs it now.
+  # shellcheck disable=SC1091 # created by the installer
+  . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+  command -v nix >/dev/null 2>&1 || die "Lix installed but nix is not on PATH; open a new shell and re-run"
+}
+
+ask_host() {  # ask_host OUTPUT — list the flake's hosts of that kind, read one
+  [ "$tty" = /dev/tty ] || die "no host given and no terminal to ask in: pass it as the first argument"
+  say "hosts in $flake:"
+  # shellcheck disable=SC2086 # nixFlags is a list of words
+  nix $nixFlags eval --json "$flake#$1" --apply builtins.attrNames \
+    | tr -d '[]"' | tr ',' '\n' | sed 's/^/  /' >&2
+  printf 'Host: ' >"$tty"
+  read -r host <"$tty"
+  [ -n "$host" ] || die "no host given"
+}
+
+host="${1:-}"
+[ $# -gt 0 ] && shift
+
+case "$(uname -s)" in
+  Darwin)
+    ensure_nix
+    [ -n "$host" ] || ask_host darwinConfigurations
+    say "switching to $host"
+    # sudo's PATH does not include Nix's profile, hence the absolute path.
+    # shellcheck disable=SC2086
+    exec sudo "$(command -v nix)" $nixFlags run "$flake#darwin-rebuild" -- \
+      switch --flake "$flake#$host" <"$tty"
+    ;;
+  Linux)
+    if [ -e /etc/NIXOS ]; then
+      if grep -qs ' /iso ' /proc/mounts; then
+        # The installer: the host is os-install's to choose, so a first
+        # argument is passed through as -H.
+        [ -n "$host" ] && set -- -H "$host" "$@"
+        # shellcheck disable=SC2086
+        exec nix $nixFlags run "$flake#os-install" -- "$@" <"$tty"
+      fi
+      # shellcheck disable=SC2086
+      exec nix $nixFlags run "$flake#system-switch" -- ${host:+"$host"} <"$tty"
+    fi
+    ensure_nix
+    say "Nix is installed. This flake has no system configuration for $(uname -s) outside NixOS;"
+    say "a user with a home configuration here can run: nix run $flake#home-switch"
+    ;;
+  *)
+    die "unsupported system: $(uname -s)"
+    ;;
+esac

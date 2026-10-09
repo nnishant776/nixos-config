@@ -8,4 +8,8 @@ in {
   system-switch = app (import ./system-switch.nix { inherit pkgs; });
   home-switch   = app (import ./home-switch.nix { inherit pkgs; });
   check-purity  = app (import ./check-purity.nix { inherit pkgs; });
+} // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+  # nix-darwin's own tool from the input this flake pins, so the first switch
+  # on a Mac uses the same nix-darwin as the modules it activates.
+  darwin-rebuild = app self.inputs.nix-darwin.packages.${pkgs.stdenv.hostPlatform.system}.darwin-rebuild;
 }

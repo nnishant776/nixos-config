@@ -16,7 +16,8 @@ pkgs.writeShellApplication {
     fi
 
     if [ "$os" = "Darwin" ]; then
-      exec sudo nix run nix-darwin -- switch --flake "$flakePath#$host"
+      # The darwin-rebuild pinned by the flake, not the registry's nix-darwin.
+      exec sudo nix run "$flakePath#darwin-rebuild" -- switch --flake "$flakePath#$host"
     else
       if grep -qi "nixos" /etc/os-release > /dev/null 2>&1; then
         exec sudo nixos-rebuild switch --flake "$flakePath#$host"

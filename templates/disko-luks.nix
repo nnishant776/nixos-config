@@ -1,5 +1,4 @@
-# Encrypted disk layout: an unencrypted ESP, then LUKS2 over the rest of the
-# disk with LVM inside — a swap volume sized for hibernation and an ext4 root.
+# Encrypted disk
 # Copy this file to hosts/<name>/disko-config.nix (every .nix file in a host
 # directory is imported) and set the swap size. `device` is only a default on
 # UEFI: os-install asks which disk to use, or takes it with -d. The swap is

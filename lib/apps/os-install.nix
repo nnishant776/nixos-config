@@ -39,6 +39,10 @@ pkgs.writeShellApplication {
       exec sudo "$0" "$@"
     fi
 
+    # The installer ISO does not enable flakes, and sudo above drops the
+    # caller's environment, so turn them on here for every nix call below.
+    export NIX_CONFIG="experimental-features = nix-command flakes"
+
     # path: so Nix reads the store copy as a plain directory; a bare store path
     # is taken for a git repository, which root-owned store paths fail as.
     flake="path:${self}"
